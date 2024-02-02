@@ -75,6 +75,8 @@ private:
 	float DashSpeed = 600.f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move", meta = (AllowPrivateAccess = "true"))
 	float AimingSpeed = 200.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move", meta = (AllowPrivateAccess = "true"))
+	float CrouchSpeed = 200.f;
 public:	
 	
 };

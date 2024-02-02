@@ -13,6 +13,8 @@
 #include "TerraFrameImpact/Components/TFICombatComponent.h"
 #include "TerraFrameImpact/Weapons/Weapon.h"
 #include "Net/UnrealNetwork.h"
+#include "Animation/AnimMontage.h"
+#include "Animation/AnimInstance.h"
 
 ATFICharacter::ATFICharacter()
 {
@@ -38,7 +40,13 @@ void ATFICharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	CombatComponent->SetDashButtonPressed(false);
+	if (CombatComponent != nullptr)
+	{
+		CombatComponent->SetDashButtonPressed(false);
+		GetCharacterMovement()->MaxWalkSpeed = CombatComponent->WalkSpeed;
+		GetCharacterMovement()->MaxWalkSpeedCrouched = CombatComponent->CrouchSpeed;
+	}
+
 }
 
 void ATFICharacter::Tick(float DeltaTime)
@@ -46,6 +54,10 @@ void ATFICharacter::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	AimOffset(DeltaTime);
+
+	FVector Velocity = GetVelocity();
+	Velocity.Z = 0.f;
+	UE_LOG(LogTemp, Warning, TEXT("Walk Speed = %.3f"), Velocity.Size());
 }
 
 void ATFICharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -91,6 +103,11 @@ void ATFICharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 			EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Started, this, &ATFICharacter::OnDashButtonPressed);
 			// EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Canceled, this, &ATFICharacter::OnEndDash);
 			EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Completed, this, &ATFICharacter::OnDashButtonReleased);
+		}
+		if (CrouchAction)
+		{
+			EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Started, this, &ATFICharacter::OnCrouchButtonPressed);
+			EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Completed, this, &ATFICharacter::OnCrouchButtonReleased);
 		}
 	}
 	//PlayerInputComponent->BindAction(FName("Move"), ETriggerEvent::Triggered, this, );
@@ -170,6 +187,10 @@ void ATFICharacter::Look(const FInputActionValue& Value)
 void ATFICharacter::Jump()
 {
 	Super::Jump();
+	if (bIsCrouched)
+	{
+		UnCrouch();
+	}
 }
 
 void ATFICharacter::StopJumping()
@@ -201,6 +222,10 @@ void ATFICharacter::OnInteract()
 void ATFICharacter::OnDashButtonPressed()
 {
 	if (CombatComponent == nullptr) return;
+	if (bIsCrouched)
+	{
+		UnCrouch();
+	}
 	CombatComponent->SetDashButtonPressed(true);
 }
 
@@ -208,6 +233,27 @@ void ATFICharacter::OnDashButtonReleased()
 {
 	if (CombatComponent == nullptr) return;
 	CombatComponent->SetDashButtonPressed(false);
+}
+
+void ATFICharacter::OnCrouchButtonPressed()
+{
+	bCrouchButtonPressed = true;
+	Crouch();
+}
+
+void ATFICharacter::OnCrouchButtonReleased()
+{
+	bCrouchButtonPressed = false;
+	UnCrouch();
+}
+
+void ATFICharacter::PlaySlideMontage()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance != nullptr && SlideMontage != nullptr)
+	{
+		AnimInstance->Montage_Play(SlideMontage);
+	}
 }
 
 void ATFICharacter::ServerOnInteract_Implementation()
@@ -262,13 +308,18 @@ void ATFICharacter::AimOffset(float DeltaTime)
 		// 这里是左右的(Yaw)
 		if (Speed == 0.f && !bIsInAir)
 		{
+			LastFrameAO_Yaw = AO_Yaw;		// 记录上一帧的AO_Yaw,以保证回正操作正常执行
 			FRotator CurAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 			FRotator DeltaRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurAimRotation, StartingAimRotation);
 			AO_Yaw = DeltaRotation.Yaw;
 			// 对于超过扭头角度的，不做响应（例如玩家正在看角色正面），从当前的脑袋旋转逐步回正到正面
 			if (AO_Yaw < -90.f || AO_Yaw > 90.f)
 			{
-				AO_Yaw = 0.f;
+				AO_Yaw = FMath::FInterpTo(LastFrameAO_Yaw, 0.f, DeltaTime, 3.f);
+			}
+			else
+			{
+				AO_Yaw = FMath::FInterpTo(LastFrameAO_Yaw, DeltaRotation.Yaw, DeltaTime, 3.f);
 			}
 			bUseControllerRotationYaw = false;
 			GetCharacterMovement()->bOrientRotationToMovement = true;
@@ -295,11 +346,12 @@ void ATFICharacter::AimOffset(float DeltaTime)
 		GetCharacterMovement()->bOrientRotationToMovement = false;
 	}
 	// 这里是上下的(Pitch)
-	CalculateAO_Pitch();
+	CalculateAO_Pitch(DeltaTime);
 }
 
-void ATFICharacter::CalculateAO_Pitch()
+void ATFICharacter::CalculateAO_Pitch(float DeltaTime)
 {
+	LastFrameAO_Pitch = AO_Pitch;
 	AO_Pitch = GetBaseAimRotation().Pitch;
 	// 因为客机传输不会传负数，所以需要将正270~360度修正到-90~0度这个区间
 	if (!IsLocallyControlled() && AO_Pitch > 90.f)
@@ -311,7 +363,7 @@ void ATFICharacter::CalculateAO_Pitch()
 	// 对于超过的角度，逐步回正到原来的位置
 	if (AO_Pitch > 90.f || AO_Pitch < -90.f)
 	{
-		AO_Pitch = 0.f;
+		AO_Pitch = FMath::FInterpTo(LastFrameAO_Pitch, 0.f, DeltaTime, 3.f);
 	}
 }
 

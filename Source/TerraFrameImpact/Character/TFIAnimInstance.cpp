@@ -37,13 +37,16 @@ void UTFIAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	bIsAiming = Character->IsAiming();
 	bIsDashing = Character->IsDashing();
 	bIsHoldingWeapon = Character->IsHoldingWeapon();
+	bCrouchButtonPressed = Character->GetCrouchButtonPressed();
 
-	FRotator AimRotation = Character->GetBaseAimRotation();
-	FRotator MovementRotation = UKismetMathLibrary::MakeRotFromX(Character->GetVelocity());
-	FRotator DeltaRot = UKismetMathLibrary::NormalizedDeltaRotator(MovementRotation, AimRotation);
-	DeltaRotation = FMath::RInterpTo(DeltaRotation, DeltaRot, DeltaSeconds, 5.f);
+	// 锁方向的旋转计算，即角色移动方向距离当前瞄准方向的差值
+	FRotator AimRotator = Character->GetBaseAimRotation();
+	FRotator MovementRotator = UKismetMathLibrary::MakeRotFromX(Character->GetVelocity());
+	FRotator InterpRotator = UKismetMathLibrary::NormalizedDeltaRotator(MovementRotator, AimRotator);
+	DeltaRotation = FMath::RInterpTo(DeltaRotation, InterpRotator, DeltaSeconds, 6.f);
 	YawOffset = DeltaRotation.Yaw;
 
+	// 原地的瞄准
 	AO_Yaw = Character->GetAO_Yaw();
 	AO_Pitch = Character->GetAO_Pitch();
 }

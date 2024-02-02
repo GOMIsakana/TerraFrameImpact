@@ -45,6 +45,9 @@ private:
 	bool bIsHoldingWeapon;
 
 	UPROPERTY(BlueprintReadOnly, Category = Movement, meta = (AllowPrivateAccess = "true"))
+	bool bCrouchButtonPressed;
+
+	UPROPERTY(BlueprintReadOnly, Category = Movement, meta = (AllowPrivateAccess = "true"))
 	float YawOffset;
 
 	FRotator CharacterRotationLastFrame;

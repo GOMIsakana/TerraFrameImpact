@@ -53,8 +53,20 @@ protected:
 	UFUNCTION()
 	void OnDashButtonReleased();
 
+	UFUNCTION()
+	void OnCrouchButtonPressed();
+
+	UFUNCTION()
+	void OnCrouchButtonReleased();
+
+	UFUNCTION()
+	void PlaySlideMontage();
+
+	UPROPERTY(EditAnywhere, Category = "角色动画")
+	class UAnimMontage* SlideMontage;
+
 	void AimOffset(float DeltaTime);
-	void CalculateAO_Pitch();
+	void CalculateAO_Pitch(float DeltaTime);
 	float CalculateSpeed();
 
 private:	
@@ -91,27 +103,31 @@ private:
 	UInputAction* InteractAction;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "EnhancedInput", meta = (AllowPrivateAccess = "true"))
 	UInputAction* DashAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "EnhancedInput", meta = (AllowPrivateAccess = "true"))
+	UInputAction* CrouchAction;
 
 	/**
 	* 瞄准偏移（给动画用的）
 	*/
 	UPROPERTY(VisibleAnywhere)
 	float AO_Yaw;
-	float InterpAO_Yaw;
+	float LastFrameAO_Yaw;
 	UPROPERTY(VisibleAnywhere)
 	float AO_Pitch;
+	float LastFrameAO_Pitch;
 	FRotator StartingAimRotation;
 
 	bool bShouldRotateRootBone = false;
-	UPROPERTY(Replicated = true)
-	bool bDashButtonPressed = false;
 
+	UPROPERTY(VisibleAnywhere)
+	bool bCrouchButtonPressed = false;
 
 public:
 
 	FORCEINLINE float GetAO_Yaw() const { return AO_Yaw; }
 	FORCEINLINE float GetAO_Pitch() const { return AO_Pitch; }
 	FORCEINLINE bool GetShouldRotateRootBone() const { return bShouldRotateRootBone; }
+	FORCEINLINE bool GetCrouchButtonPressed() const { return bCrouchButtonPressed; }
 	bool IsDashing();
 	bool IsAiming();
 	bool IsHoldingWeapon();
