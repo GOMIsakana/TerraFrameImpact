@@ -22,6 +22,8 @@ public:
 
 	virtual void Jump() override;
 	virtual void StopJumping() override;
+	UFUNCTION()
+	void PlaySlideMontage();
 
 protected:
 	// Called when the game starts or when spawned
@@ -59,9 +61,6 @@ protected:
 	UFUNCTION()
 	void OnCrouchButtonReleased();
 
-	UFUNCTION()
-	void PlaySlideMontage();
-
 	UPROPERTY(EditAnywhere, Category = "角色动画")
 	class UAnimMontage* SlideMontage;
 
@@ -71,10 +70,10 @@ protected:
 
 private:	
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	class USpringArmComponent* CameraBoom;
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	class UCameraComponent* FollowCamera;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
@@ -122,12 +121,16 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	bool bCrouchButtonPressed = false;
 
+	UPROPERTY(VisibleAnywhere)
+	class UTimelineComponent* SlideTimeline;
+
 public:
 
 	FORCEINLINE float GetAO_Yaw() const { return AO_Yaw; }
 	FORCEINLINE float GetAO_Pitch() const { return AO_Pitch; }
 	FORCEINLINE bool GetShouldRotateRootBone() const { return bShouldRotateRootBone; }
 	FORCEINLINE bool GetCrouchButtonPressed() const { return bCrouchButtonPressed; }
+	FORCEINLINE UTimelineComponent* GetSlideTimeline() const { return SlideTimeline; }
 	bool IsDashing();
 	bool IsAiming();
 	bool IsHoldingWeapon();

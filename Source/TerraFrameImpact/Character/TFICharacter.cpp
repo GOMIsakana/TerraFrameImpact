@@ -15,11 +15,12 @@
 #include "Net/UnrealNetwork.h"
 #include "Animation/AnimMontage.h"
 #include "Animation/AnimInstance.h"
+#include "Components/CapsuleComponent.h"
 
 ATFICharacter::ATFICharacter()
 {
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("摄像机弹簧臂"));
-	CameraBoom->SetupAttachment(RootComponent);
+	CameraBoom->SetupAttachment(GetMesh());
 	CameraBoom->TargetArmLength = 500.f;
 	CameraBoom->bUsePawnControlRotation = true;
 
@@ -33,7 +34,10 @@ ATFICharacter::ATFICharacter()
 	CombatComponent = CreateDefaultSubobject<UTFICombatComponent>(TEXT("战斗组件"));
 	CombatComponent->SetIsReplicated(true);
 
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+
+	SlideTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("滑行时间轴"));
 }
 
 void ATFICharacter::BeginPlay()
@@ -55,9 +59,11 @@ void ATFICharacter::Tick(float DeltaTime)
 
 	AimOffset(DeltaTime);
 
+	/*
 	FVector Velocity = GetVelocity();
 	Velocity.Z = 0.f;
 	UE_LOG(LogTemp, Warning, TEXT("Walk Speed = %.3f"), Velocity.Size());
+	*/
 }
 
 void ATFICharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -238,12 +244,17 @@ void ATFICharacter::OnDashButtonReleased()
 void ATFICharacter::OnCrouchButtonPressed()
 {
 	bCrouchButtonPressed = true;
+	if (GetCharacterMovement()->GetCurrentAcceleration().Size() > 0.f && CombatComponent)
+	{
+		CombatComponent->ServerSlide();
+	}
 	Crouch();
 }
 
 void ATFICharacter::OnCrouchButtonReleased()
 {
 	bCrouchButtonPressed = false;
+	if (CombatComponent->bSliding) return;
 	UnCrouch();
 }
 

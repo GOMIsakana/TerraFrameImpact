@@ -13,7 +13,7 @@
 UTFICombatComponent::UTFICombatComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
-	
+
 }
 
 void UTFICombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -30,7 +30,6 @@ void UTFICombatComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	
 }
 
 void UTFICombatComponent::OnRep_IsAiming()
@@ -114,6 +113,58 @@ void UTFICombatComponent::Dash(bool state)
 		bIsDashing = false;
 		Character->GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
 		ServerStopDash();
+	}
+}
+
+void UTFICombatComponent::MultiCastSlide_Implementation()
+{
+	Slide();
+}
+
+void UTFICombatComponent::ServerSlide_Implementation()
+{
+	MultiCastSlide();
+}
+
+void UTFICombatComponent::ServerSlideCompleted_Implementation()
+{
+	MultiCastSlideComplete();
+}
+
+void UTFICombatComponent::Slide()
+{
+	if (bSliding) return;
+	bSliding = true;
+	SlideTarck.BindDynamic(this, &UTFICombatComponent::UpdateSlideSpeed);
+	UTimelineComponent* timeline = Character->GetSlideTimeline();
+	if (timeline && SlideCurve)
+	{
+		timeline->AddInterpFloat(SlideCurve, SlideTarck);
+		timeline->PlayFromStart();
+	}
+	Character->PlaySlideMontage();
+}
+
+void UTFICombatComponent::UpdateSlideSpeed(float SpeedMultiple)
+{
+	if (Character == nullptr || Character->GetCharacterMovement() == nullptr) return;
+	FVector ForwardVector = Character->GetActorForwardVector();
+	FVector Velocity = Character->GetVelocity();
+	float MoveDistance = Character->GetCharacterMovement()->MaxWalkSpeed * SlideSpeedMultiple * SpeedMultiple;
+	FVector FinalVector = ForwardVector * MoveDistance;
+	Character->GetCharacterMovement()->Velocity = FVector(FinalVector.X, FinalVector.Y, Velocity.Z);
+}
+
+void UTFICombatComponent::MultiCastSlideComplete_Implementation()
+{
+	bSliding = false;
+	if (Character->GetCrouchButtonPressed())
+	{
+		Character->Crouch();
+	}
+	else
+	{
+		Character->UnCrouch();
 	}
 }
 
