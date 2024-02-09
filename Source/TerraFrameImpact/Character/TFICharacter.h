@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "TerraFrameImpact/Enums/CharacterState.h"
 #include "TFICharacter.generated.h"
 
 UCLASS()
@@ -22,8 +23,13 @@ public:
 
 	virtual void Jump() override;
 	virtual void StopJumping() override;
+	virtual void Landed(const FHitResult& Hit) override;
 	UFUNCTION()
 	void PlaySlideMontage();
+	UFUNCTION()
+	void PlayBulletJumpMontage();
+	UFUNCTION()
+	void PlayFireMontage(bool bAiming);
 
 protected:
 	// Called when the game starts or when spawned
@@ -39,7 +45,6 @@ protected:
 
 	UFUNCTION()
 	void OnAim();
-
 	UFUNCTION()
 	void OnAimCompoleted();
 
@@ -51,18 +56,25 @@ protected:
 
 	UFUNCTION()
 	void OnDashButtonPressed();
-
 	UFUNCTION()
 	void OnDashButtonReleased();
 
 	UFUNCTION()
 	void OnCrouchButtonPressed();
-
 	UFUNCTION()
 	void OnCrouchButtonReleased();
 
+	UFUNCTION()
+	void OnFireButtonPressed();
+	UFUNCTION()
+	void OnFireButtonReleased();
+
 	UPROPERTY(EditAnywhere, Category = "角色动画")
 	class UAnimMontage* SlideMontage;
+	UPROPERTY(EditAnywhere, Category = "角色动画")
+	class UAnimMontage* BulletJumpMontage;
+	UPROPERTY(EditAnywhere, Category = "角色动画")
+	class UAnimMontage* FireMontage;
 
 	void AimOffset(float DeltaTime);
 	void CalculateAO_Pitch(float DeltaTime);
@@ -104,6 +116,8 @@ private:
 	UInputAction* DashAction;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "EnhancedInput", meta = (AllowPrivateAccess = "true"))
 	UInputAction* CrouchAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "EnhancedInput", meta = (AllowPrivateAccess = "true"))
+	UInputAction* FireAction;
 
 	/**
 	* 瞄准偏移（给动画用的）
@@ -121,8 +135,8 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	bool bCrouchButtonPressed = false;
 
-	UPROPERTY(VisibleAnywhere)
 	class UTimelineComponent* SlideTimeline;
+	UTimelineComponent* BulletJumpTimeline;
 
 public:
 
@@ -131,7 +145,10 @@ public:
 	FORCEINLINE bool GetShouldRotateRootBone() const { return bShouldRotateRootBone; }
 	FORCEINLINE bool GetCrouchButtonPressed() const { return bCrouchButtonPressed; }
 	FORCEINLINE UTimelineComponent* GetSlideTimeline() const { return SlideTimeline; }
+	FORCEINLINE UTimelineComponent* GetBulletJumpTimeline() const { return BulletJumpTimeline; }
+	AWeapon* GetHoldingWeapon();
 	bool IsDashing();
 	bool IsAiming();
 	bool IsHoldingWeapon();
+	ECharacterState GetCharacterState();
 };

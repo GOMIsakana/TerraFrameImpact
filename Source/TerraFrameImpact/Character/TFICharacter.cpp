@@ -19,6 +19,8 @@
 
 ATFICharacter::ATFICharacter()
 {
+	PrimaryActorTick.bCanEverTick = true;
+
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("摄像机弹簧臂"));
 	CameraBoom->SetupAttachment(GetMesh());
 	CameraBoom->TargetArmLength = 500.f;
@@ -38,6 +40,7 @@ ATFICharacter::ATFICharacter()
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 
 	SlideTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("滑行时间轴"));
+	BulletJumpTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("子弹跳时间轴"));
 }
 
 void ATFICharacter::BeginPlay()
@@ -115,6 +118,11 @@ void ATFICharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 			EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Started, this, &ATFICharacter::OnCrouchButtonPressed);
 			EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Completed, this, &ATFICharacter::OnCrouchButtonReleased);
 		}
+		if (FireAction)
+		{
+			EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, this, &ATFICharacter::OnFireButtonPressed);
+			EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &ATFICharacter::OnFireButtonReleased);
+		}
 	}
 	//PlayerInputComponent->BindAction(FName("Move"), ETriggerEvent::Triggered, this, );
 	//UEnhancedInputComponent* Input = Cast<UEnhancedInputComponent>(PlayerInputComponent);
@@ -142,6 +150,24 @@ void ATFICharacter::PostInitializeComponents()
 	{
 		CombatComponent->Character = this;
 	}
+}
+
+AWeapon* ATFICharacter::GetHoldingWeapon()
+{
+	if (CombatComponent && CombatComponent->HoldingWeapon)
+	{
+		return CombatComponent->HoldingWeapon;
+	}
+	return nullptr;
+}
+
+ECharacterState ATFICharacter::GetCharacterState()
+{
+	if (CombatComponent)
+	{
+		return CombatComponent->CharacterState;
+	}
+	return ECharacterState::ECS_MAX;
 }
 
 bool ATFICharacter::IsDashing()
@@ -192,16 +218,31 @@ void ATFICharacter::Look(const FInputActionValue& Value)
 
 void ATFICharacter::Jump()
 {
-	Super::Jump();
 	if (bIsCrouched)
 	{
 		UnCrouch();
 	}
+	if (GetCharacterState() == ECharacterState::ECS_Slide)
+	{
+		CombatComponent->BulletJump();
+		return;
+	}
+	Super::Jump();
 }
 
 void ATFICharacter::StopJumping()
 {
 	Super::StopJumping();
+}
+
+void ATFICharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+
+	if (CombatComponent)
+	{
+		CombatComponent->ResetBulletJumpLimit();
+	}
 }
 
 void ATFICharacter::OnAim()
@@ -227,7 +268,7 @@ void ATFICharacter::OnInteract()
 
 void ATFICharacter::OnDashButtonPressed()
 {
-	if (CombatComponent == nullptr) return;
+	if (GetCharacterState() != ECharacterState::ECS_Normal) return;
 	if (bIsCrouched)
 	{
 		UnCrouch();
@@ -244,18 +285,35 @@ void ATFICharacter::OnDashButtonReleased()
 void ATFICharacter::OnCrouchButtonPressed()
 {
 	bCrouchButtonPressed = true;
-	if (GetCharacterMovement()->GetCurrentAcceleration().Size() > 0.f && CombatComponent)
+	if ((GetCharacterMovement()->GetCurrentAcceleration().Size() > 0.f || GetCharacterMovement()->IsFalling()) && CombatComponent && GetCharacterState() == ECharacterState::ECS_Normal)
 	{
-		CombatComponent->ServerSlide();
+		CombatComponent->Slide();
 	}
+	if (GetCharacterState() == ECharacterState::ECS_BulletJump) return;
 	Crouch();
 }
 
 void ATFICharacter::OnCrouchButtonReleased()
 {
 	bCrouchButtonPressed = false;
-	if (CombatComponent->bSliding) return;
+	if (GetCharacterState() != ECharacterState::ECS_Normal) return;
 	UnCrouch();
+}
+
+void ATFICharacter::OnFireButtonPressed()
+{
+	if (CombatComponent)
+	{
+		CombatComponent->SetFiring(true);
+	}
+}
+
+void ATFICharacter::OnFireButtonReleased()
+{
+	if (CombatComponent)
+	{
+		CombatComponent->SetFiring(false);
+	}
 }
 
 void ATFICharacter::PlaySlideMontage()
@@ -264,6 +322,31 @@ void ATFICharacter::PlaySlideMontage()
 	if (AnimInstance != nullptr && SlideMontage != nullptr)
 	{
 		AnimInstance->Montage_Play(SlideMontage);
+	}
+}
+
+void ATFICharacter::PlayBulletJumpMontage()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance != nullptr && BulletJumpMontage != nullptr)
+	{
+		AnimInstance->Montage_Play(BulletJumpMontage);
+	}
+}
+
+void ATFICharacter::PlayFireMontage(bool bAiming)
+{
+	if (CombatComponent == nullptr || CombatComponent->HoldingWeapon == nullptr) return;
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance == nullptr || FireMontage == nullptr) return;
+	AnimInstance->Montage_Play(FireMontage);
+	if (bAiming)
+	{
+		AnimInstance->Montage_JumpToSection(FName("Aim"));
+	}
+	else
+	{
+		AnimInstance->Montage_JumpToSection(FName("Hip"));
 	}
 }
 
@@ -353,6 +436,7 @@ void ATFICharacter::AimOffset(float DeltaTime)
 	}
 	else
 	{
+		AO_Yaw = 0.f;
 		bUseControllerRotationYaw = true;
 		GetCharacterMovement()->bOrientRotationToMovement = false;
 	}

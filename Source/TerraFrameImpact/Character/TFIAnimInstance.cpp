@@ -5,6 +5,7 @@
 #include "TFICharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "TerraFrameImpact/Weapons/Weapon.h"
 
 
 void UTFIAnimInstance::NativeInitializeAnimation()
@@ -38,6 +39,7 @@ void UTFIAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	bIsDashing = Character->IsDashing();
 	bIsHoldingWeapon = Character->IsHoldingWeapon();
 	bCrouchButtonPressed = Character->GetCrouchButtonPressed();
+	HoldingWeapon = Character->GetHoldingWeapon();
 
 	// 锁方向的旋转计算，即角色移动方向距离当前瞄准方向的差值
 	FRotator AimRotator = Character->GetBaseAimRotation();
@@ -49,4 +51,18 @@ void UTFIAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	// 原地的瞄准
 	AO_Yaw = Character->GetAO_Yaw();
 	AO_Pitch = Character->GetAO_Pitch();
+
+	// 左手自动旋转对齐
+	if (bIsHoldingWeapon && HoldingWeapon != nullptr && Character->GetMesh() != nullptr)
+	{
+		LeftHandTransfrom = HoldingWeapon->GetWeaponMesh()->GetSocketTransform(FName("LeftHandSocket"), ERelativeTransformSpace::RTS_World);
+		FVector OutPosition;
+		FRotator OutRotation;
+		Character->GetMesh()->TransformToBoneSpace(FName("hand_r"), LeftHandTransfrom.GetLocation(), FRotator::ZeroRotator, OutPosition, OutRotation);
+		LeftHandTransfrom.SetLocation(OutPosition);
+		LeftHandTransfrom.SetRotation(FQuat(OutRotation));
+	}
+
+	bUseFABRIK = Character->GetCharacterState() == ECharacterState::ECS_Normal && bIsInAir == false ? true : false;
+
 }

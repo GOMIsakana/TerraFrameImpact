@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "TerraFrameImpact/Character/TFICharacter.h"
 #include "Components/TimelineComponent.h"
+#include "TerraFrameImpact/Enums/CharacterState.h"
 #include "TFICombatComponent.generated.h"
 
 
@@ -23,7 +24,10 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	void SetAiming(bool state);
+	void SetFiring(bool state);
 	void SetDashButtonPressed(bool state);
+	void ReduceBulletJumpLimit(int32 ReduceAmount);
+	void ResetBulletJumpLimit();
 
 protected:
 	// Called when the game starts
@@ -68,24 +72,62 @@ private:
 	UFUNCTION(Server, Reliable)
 	void ServerSetAiming(bool state);
 
+	void TraceUnderCrossHair(FHitResult& HitResult);
+	void Fire();
 	UFUNCTION(Server, Reliable)
-	void ServerSlide();
-	UFUNCTION(Server, Reliable, BlueprintCallable)
-	void ServerSlideCompleted();
-	UFUNCTION(NetMultiCast, Reliable)
-	void MultiCastSlide();
-	UFUNCTION(NetMultiCast, Reliable)
-	void MultiCastSlideComplete();
+	void ServerFire(const FVector_NetQuantize& TargetPos);
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastFire(const FVector_NetQuantize& TargetPos);
+	void LocalFire(const FVector_NetQuantize& TargetPos);
+
 	UFUNCTION()
 	void Slide();
-	float bSliding = false;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move", meta = (AllowPrivateAccess = "true"))
-	float SlideSpeedMultiple = 1.f;
+	UFUNCTION(Server, Reliable)
+	void ServerSlide();
+	UFUNCTION(NetMultiCast, Reliable)
+	void MultiCastSlide();
 	UFUNCTION()
-	void UpdateSlideSpeed(float SpeedMultiple);
-	class FOnTimelineFloat SlideTarck;	// 用来跟踪Timeline的输出, 实际上就是负责将Timeline的输出进行处理的
+	void UpdateSlideSpeed(float CurveSpeedMultiple);
+	UFUNCTION(BlueprintCallable)
+	void SlideCompleted();
+	UFUNCTION()
+	void InitSlide();
+	bool bSliding = false;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move", meta = (AllowPrivateAccess = "true"))
+	float SlideSpeedMultiple = 5.f;
+	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move", meta = (AllowPrivateAccess = "true"))
+	// float SlideZAixSpeedMultiple = 2.f;
+	class FOnTimelineFloat SlideTrack;	// 用来跟踪Timeline的输出, 实际上就是负责将Timeline的输出进行处理的
 	UPROPERTY(EditAnywhere, Category = "Move")
 	class UCurveFloat* SlideCurve;
+	UTimelineComponent* SlideTimeline;
+	float SlideStartSpeed = 0.f;
+
+	UFUNCTION()
+	void BulletJump();
+	UFUNCTION()
+	void UpdateBulletJumpSpeed(float CurveSpeedMultiple);
+	UFUNCTION(Server, Reliable)
+	void ServerBulletJump();
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastBulletJump();
+	UFUNCTION(BlueprintCallable)
+	void BulletJumpCompleted();
+	UFUNCTION()
+	void InitBulletJump();
+	bool bBulletJumping = false;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move", meta = (AllowPrivateAccess = "true"))
+	float BulletJumpDistance = 3000.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move", meta = (AllowPrivateAccess = "true"))
+	int32 BulletJumpLimit = 1;
+	UPROPERTY(EditAnywhere, Category = "Move")
+	UCurveFloat* BulletJumpCurve;
+	FOnTimelineFloat BulletJumpTrack;
+	UTimelineComponent* BulletJumpTimeline;
+	UPROPERTY(Replicated = true)
+	FRotator BulletJumpFacingRotator;
+	FVector BulletJumpFacingVector;
+	int32 CurrentBulletJumpLimit;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move", meta = (AllowPrivateAccess = "true"))
 	float WalkSpeed = 300.f;
@@ -96,6 +138,14 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move", meta = (AllowPrivateAccess = "true"))
 	float CrouchSpeed = 200.f;
 
+	UPROPERTY(Replicated = true)
+	ECharacterState CharacterState = ECharacterState::ECS_Normal;
+
+	bool bFireButtonPressed;
+
+	FVector HitTarget;
+
 public:	
-	
+	UFUNCTION(BlueprintCallable)
+	float GetSlideStartSpeed();
 };

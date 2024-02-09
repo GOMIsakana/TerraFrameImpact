@@ -43,6 +43,14 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME(AWeapon, WeaponState);
 }
 
+void AWeapon::Fire(const FVector_NetQuantize& TargetPos)
+{
+	if (FireAnimation)
+	{
+		WeaponMesh->PlayAnimation(FireAnimation, false);
+	}
+}
+
 // Called when the game starts or when spawned
 void AWeapon::BeginPlay()
 {
@@ -136,5 +144,14 @@ void AWeapon::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+}
+
+USkeletalMeshComponent* AWeapon::GetWeaponMesh()
+{
+	if (WeaponMesh != nullptr)
+	{
+		return WeaponMesh;
+	}
+	return nullptr;
 }
 
