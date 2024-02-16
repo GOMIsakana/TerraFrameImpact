@@ -26,7 +26,25 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	void Fire(const FVector_NetQuantize& TargetPos);
+	virtual void Fire(const FVector& TargetPos);
+	void SetHUDAmmo();
+
+	UPROPERTY(EditAnywhere, Category = "武器基本资产")
+	float FireDelay = .15f;
+
+	UPROPERTY(EditAnywhere, Category = "武器基本资产")
+	bool bAutomatic = true;
+
+	UPROPERTY(EditAnywhere, Category = "准心")
+	class UTexture2D* CrosshairsTop;
+	UPROPERTY(EditAnywhere, Category = "准心")
+	UTexture2D* CrosshairsBottom;
+	UPROPERTY(EditAnywhere, Category = "准心")
+	UTexture2D* CrosshairsLeft;
+	UPROPERTY(EditAnywhere, Category = "准心")
+	UTexture2D* CrosshairsRight;
+	UPROPERTY(EditAnywhere, Category = "准心")
+	UTexture2D* CrosshairsCenter;
 
 protected:
 	// Called when the game starts or when spawned
@@ -38,8 +56,6 @@ protected:
 	UFUNCTION()
 	void OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
-
-private:
 	UPROPERTY(VisibleAnywhere, Category = "武器基本资产", ReplicatedUsing = OnRep_WeaponState)
 	EWeaponState WeaponState = EWeaponState::EWS_Unpicked;
 
@@ -55,17 +71,26 @@ private:
 	UPROPERTY(EditAnywhere, Category = "武器基本资产")
 	class UAnimationAsset* FireAnimation;
 
+private:
+
 	UFUNCTION()
 	void OnRep_WeaponState();
-
 	void OnSetWeaponState();
-
 	void OnHasOwner();
 	void OnDropped();
-
 
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 	USkeletalMeshComponent* GetWeaponMesh();
+
+	UPROPERTY(EditAnywhere)
+	int32 Ammo;
+
+	void SpendRound();
+
+	UPROPERTY(EditAnywhere)
+	int32 MagCapacity;
+
+	FORCEINLINE bool IsEmpty() const { return Ammo <= 0; };
 };

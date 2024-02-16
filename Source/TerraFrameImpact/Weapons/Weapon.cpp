@@ -6,7 +6,9 @@
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
 #include "TerraFrameImpact/Character/TFICharacter.h"
+#include "TerraFrameImpact/PlayerController/TFIPlayerController.h"
 #include "Net/UnrealNetwork.h"
+#include "DrawDebugHelpers.h"
 
 // Sets default values
 AWeapon::AWeapon()
@@ -43,12 +45,13 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME(AWeapon, WeaponState);
 }
 
-void AWeapon::Fire(const FVector_NetQuantize& TargetPos)
+void AWeapon::Fire(const FVector& TargetPos)
 {
 	if (FireAnimation)
 	{
 		WeaponMesh->PlayAnimation(FireAnimation, false);
 	}
+	SpendRound();
 }
 
 // Called when the game starts or when spawned
@@ -128,6 +131,7 @@ void AWeapon::OnHasOwner()
 	Sphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetSimulatePhysics(false);
 	WeaponMesh->SetEnableGravity(false);
+	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void AWeapon::OnDropped()
@@ -137,6 +141,7 @@ void AWeapon::OnDropped()
 	Sphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
 	WeaponMesh->SetSimulatePhysics(true);
 	WeaponMesh->SetEnableGravity(true);
+	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 }
 
 // Called every frame
@@ -155,3 +160,21 @@ USkeletalMeshComponent* AWeapon::GetWeaponMesh()
 	return nullptr;
 }
 
+void AWeapon::SetHUDAmmo()
+{
+	ATFICharacter* Character = Cast<ATFICharacter>(GetOwner());
+	if (Character)
+	{
+		ATFIPlayerController* Controller = Cast<ATFIPlayerController>(Character->Controller);
+		if (Controller)
+		{
+			Controller->SetHUDWeaponAmmo(Ammo);
+		}
+	}
+}
+
+void AWeapon::SpendRound()
+{
+	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
+	SetHUDAmmo();
+}

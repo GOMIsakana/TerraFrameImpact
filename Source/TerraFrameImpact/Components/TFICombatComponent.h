@@ -7,6 +7,7 @@
 #include "TerraFrameImpact/Character/TFICharacter.h"
 #include "Components/TimelineComponent.h"
 #include "TerraFrameImpact/Enums/CharacterState.h"
+#include "TerraFrameImpact/HUD/TFICharacterHUD.h"
 #include "TFICombatComponent.generated.h"
 
 
@@ -35,6 +36,8 @@ protected:
 
 	UFUNCTION()
 	void OnRep_IsAiming();
+
+	void SetHUDCrosshairs(float DeltaTime);
 
 private:
 	UFUNCTION()
@@ -79,6 +82,15 @@ private:
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastFire(const FVector_NetQuantize& TargetPos);
 	void LocalFire(const FVector_NetQuantize& TargetPos);
+	FVector HitTarget;
+	FTimerHandle FireTimer;
+	UFUNCTION()
+	void StartFireTimer();
+	UFUNCTION()
+	void FireTimerFinished();
+	bool bCanFire = true;
+	bool bFireButtonPressed;
+
 
 	UFUNCTION()
 	void Slide();
@@ -141,9 +153,17 @@ private:
 	UPROPERTY(Replicated = true)
 	ECharacterState CharacterState = ECharacterState::ECS_Normal;
 
-	bool bFireButtonPressed;
+	UPROPERTY()
+	class ATFIPlayerController* Controller;
+	UPROPERTY()
+	class ATFICharacterHUD* HUD;
+	FCrosshairPackage HUDPackage;
+	float CrosshairVelocityFactor;
+	float CrosshairFallingFactor;
+	float CrosshairAimFactor;
+	float CrosshairShootFactor;
 
-	FVector HitTarget;
+	bool CanFire();
 
 public:	
 	UFUNCTION(BlueprintCallable)

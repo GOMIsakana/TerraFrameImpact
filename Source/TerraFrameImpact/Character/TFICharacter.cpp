@@ -16,6 +16,7 @@
 #include "Animation/AnimMontage.h"
 #include "Animation/AnimInstance.h"
 #include "Components/CapsuleComponent.h"
+#include "TerraFrameImpact/TerraFrameImpact.h"
 
 ATFICharacter::ATFICharacter()
 {
@@ -37,7 +38,9 @@ ATFICharacter::ATFICharacter()
 	CombatComponent->SetIsReplicated(true);
 
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	GetMesh()->SetCollisionObjectType(ECC_SkeletalMesh);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
 
 	SlideTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("滑行时间轴"));
 	BulletJumpTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("子弹跳时间轴"));

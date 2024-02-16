@@ -11,6 +11,8 @@
 #include "Engine/SkeletalMeshSocket.h"
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
+#include "TerraFrameImpact/HUD/TFICharacterHUD.h"
+#include "TerraFrameImpact/PlayerController/TFIPlayerController.h"
 
 // Sets default values for this component's properties
 UTFICombatComponent::UTFICombatComponent()
@@ -45,7 +47,21 @@ void UTFICombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	{
 		FHitResult HitResult;
 		TraceUnderCrossHair(HitResult);
-		HitTarget = HitResult.ImpactPoint;
+		// 有时候会出现“对着墙也会找不到ImpactPoint”的情况，需要解决
+		if (HitResult.bBlockingHit)
+		{
+			HitTarget = HitResult.ImpactPoint;
+		}
+		else
+		{
+			HitTarget = HitResult.TraceEnd;
+		}
+		SetHUDCrosshairs(DeltaTime);
+
+		if (CharacterState == ECharacterState::ECS_Normal && (Character->GetActorRotation().Pitch != 0.f || Character->GetActorRotation().Roll != 0.f))
+		{
+			BulletJumpCompleted();
+		}
 	}
 }
 
@@ -54,6 +70,72 @@ void UTFICombatComponent::OnRep_IsAiming()
 	if (Character && Character->IsLocallyControlled())
 	{
 		bIsAiming = bAimButtonPressed;
+	}
+}
+
+void UTFICombatComponent::SetHUDCrosshairs(float DeltaTime)
+{
+	if (Character == nullptr || Character->Controller == nullptr) return;
+
+	Controller = Controller == nullptr ? Cast<ATFIPlayerController>(Character->Controller) : Controller;
+	if (Controller)
+	{
+		HUD = HUD == nullptr ? Cast<ATFICharacterHUD>(Controller->GetHUD()) : HUD;
+		if (HUD)
+		{
+			if (HoldingWeapon)
+			{
+				HUDPackage.CrosshairsCenter = HoldingWeapon->CrosshairsCenter;
+				HUDPackage.CrosshairsLeft = HoldingWeapon->CrosshairsLeft;
+				HUDPackage.CrosshairsRight = HoldingWeapon->CrosshairsRight;
+				HUDPackage.CrosshairsTop = HoldingWeapon->CrosshairsTop;
+				HUDPackage.CrosshairsBottom = HoldingWeapon->CrosshairsBottom;
+			}
+			else
+			{
+				HUDPackage.CrosshairsCenter = nullptr;
+				HUDPackage.CrosshairsLeft = nullptr;
+				HUDPackage.CrosshairsRight = nullptr;
+				HUDPackage.CrosshairsTop = nullptr;
+				HUDPackage.CrosshairsBottom = nullptr;
+			}
+
+			// 计算扩散
+			FVector2D WalkSpeedRange(0.f, Character->GetCharacterMovement()->MaxWalkSpeed);
+			FVector2D VelocityMultiplierRange(0.f, 1.f);
+			FVector Velocity = Character->GetVelocity();
+			Velocity.Z = 0.f;
+
+			CrosshairVelocityFactor = FMath::GetMappedRangeValueClamped(WalkSpeedRange, VelocityMultiplierRange, Velocity.Size());
+
+			if (Character->GetCharacterMovement()->IsFalling())
+			{
+				CrosshairFallingFactor = FMath::FInterpTo(CrosshairFallingFactor, 2.25f, DeltaTime, 2.25f);
+			}
+			else
+			{
+				CrosshairFallingFactor = FMath::FInterpTo(CrosshairFallingFactor, 0.f, DeltaTime, 2.25f);
+			}
+			if (bIsAiming)
+			{
+				CrosshairAimFactor = FMath::FInterpTo(CrosshairAimFactor, .5f, DeltaTime, .5f);
+			}
+			else
+			{
+				CrosshairAimFactor = FMath::FInterpTo(CrosshairAimFactor, 0.f, DeltaTime, .5f);
+			}
+
+			CrosshairShootFactor = FMath::FInterpTo(CrosshairShootFactor, 0.f, DeltaTime, 40.f);
+
+			HUDPackage.CrosshairSpread =
+				.5f +
+				CrosshairVelocityFactor +
+				CrosshairFallingFactor -
+				CrosshairAimFactor +
+				CrosshairShootFactor;
+
+			HUD->SetCrosshairPackage(HUDPackage);
+		}
 	}
 }
 
@@ -69,7 +151,6 @@ void UTFICombatComponent::AttachActorToCharacterMesh(AActor* OtherActor, FName S
 
 void UTFICombatComponent::EquipWeapon(AWeapon* TargetWeapon)
 {
-	// 这里是“当且仅当自己是服务器”的时候会去执行
 	if (TargetWeapon == nullptr || Character == nullptr) return;
 	if (HoldingWeapon != nullptr)
 	{
@@ -79,6 +160,7 @@ void UTFICombatComponent::EquipWeapon(AWeapon* TargetWeapon)
 	HoldingWeapon->SetOwner(Character);
 	HoldingWeapon->SetWeaponState(EWeaponState::EWS_HasOwner);
 	HoldingWeapon->ShowPickupWidget(false);
+	HoldingWeapon->SetHUDAmmo();
 	if (Character->GetCharacterMovement() != nullptr)
 	{
 		Character->GetCharacterMovement()->bOrientRotationToMovement = false;
@@ -156,7 +238,7 @@ void UTFICombatComponent::TraceUnderCrossHair(FHitResult& HitResult)
 		GEngine->GameViewport->GetViewportSize(ViewportSize);
 	}
 
-	FVector2D ScreenCenterPosition(ViewportSize.X / 2, ViewportSize.Y / 2);
+	FVector2D ScreenCenterPosition(ViewportSize.X / 2.f, ViewportSize.Y / 2.f);
 	FVector ScreenWorldPosition;
 	FVector ScreenWorldDirection;
 	bool bScreenToWorld = UGameplayStatics::DeprojectScreenToWorld(
@@ -172,10 +254,10 @@ void UTFICombatComponent::TraceUnderCrossHair(FHitResult& HitResult)
 		if (Character)
 		{
 			float ScreenToCharacterDistance = (Character->GetActorLocation() - TraceStart).Size();
-			TraceStart += ScreenWorldDirection * (ScreenToCharacterDistance * 100.f);
+			TraceStart += ScreenWorldDirection * (ScreenToCharacterDistance + 100.f);
 		}
 
-		FVector TraceEnd = TraceStart + ScreenWorldDirection * 50000.f;
+		FVector TraceEnd = TraceStart + ScreenWorldDirection * 80000.f;
 
 		GetWorld()->LineTraceSingleByChannel(
 			HitResult,
@@ -188,16 +270,25 @@ void UTFICombatComponent::TraceUnderCrossHair(FHitResult& HitResult)
 
 void UTFICombatComponent::Fire()
 {
+	if (!CanFire()) return;
 	if (HoldingWeapon == nullptr || Character == nullptr || Character->GetCharacterState() != ECharacterState::ECS_Normal) return;
 	// 非服务器的话开火一下
 	if (!Character->HasAuthority()) LocalFire(HitTarget);
 	// 服务器多播一下开火
 	ServerFire(HitTarget);
+	bCanFire = false;
+	CrosshairShootFactor = .75f;
+	StartFireTimer();
 }
 
 void UTFICombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TargetPos)
 {
 	MulticastFire_Implementation(TargetPos);
+	/*
+	if (Character == nullptr) return;
+	FRotator CharacterRotation(0.f, Character->GetBaseAimRotation().Yaw, 0.f);
+	Character->SetActorRotation(CharacterRotation);
+	*/
 }
 
 void UTFICombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TargetPos)
@@ -213,7 +304,34 @@ void UTFICombatComponent::LocalFire(const FVector_NetQuantize& TargetPos)
 	{
 		Character->PlayFireMontage(bIsAiming);
 		HoldingWeapon->Fire(TargetPos);
+		/* 射击时快速转向至瞄准目标
+		if (Character == nullptr) return;
+		FRotator CharacterRotation(0.f, Character->GetBaseAimRotation().Yaw, 0.f);
+		Character->SetActorRotation(CharacterRotation);
+		*/
 	}
+}
+
+void UTFICombatComponent::StartFireTimer()
+{
+	if (HoldingWeapon == nullptr || Character == nullptr) return;
+	Character->GetWorldTimerManager().SetTimer(
+		FireTimer,
+		this,
+		&UTFICombatComponent::FireTimerFinished,
+		HoldingWeapon->FireDelay
+	);
+}
+
+void UTFICombatComponent::FireTimerFinished()
+{
+	if (HoldingWeapon == nullptr) return;
+	bCanFire = true;
+	if (bFireButtonPressed && HoldingWeapon->bAutomatic)
+	{
+		Fire();
+	}
+
 }
 
 void UTFICombatComponent::Slide()
@@ -221,7 +339,6 @@ void UTFICombatComponent::Slide()
 	if (bSliding || bBulletJumping) return;
 	bSliding = true;
 	CharacterState = ECharacterState::ECS_Slide;
-
 	ServerSlide();
 }
 
@@ -292,7 +409,6 @@ void UTFICombatComponent::BulletJump()
 		BulletJumpTimeline->AddInterpFloat(BulletJumpCurve, BulletJumpTrack);
 		BulletJumpTimeline->PlayFromStart();
 	}
-
 	ServerBulletJump();
 }
 
@@ -343,6 +459,12 @@ void UTFICombatComponent::InitBulletJump()
 			BulletJumpFacingVector.Z = 0.f;
 		}
 	}
+}
+
+bool UTFICombatComponent::CanFire()
+{
+	if (HoldingWeapon == nullptr) return false;
+	return !HoldingWeapon->IsEmpty() && bCanFire && CharacterState == ECharacterState::ECS_Normal;
 }
 
 void UTFICombatComponent::BulletJumpCompleted()
