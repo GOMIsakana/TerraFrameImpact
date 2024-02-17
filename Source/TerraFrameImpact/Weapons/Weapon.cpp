@@ -144,6 +144,22 @@ void AWeapon::OnDropped()
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 }
 
+void AWeapon::ClientUpdateAmmo_Implementation(int32 ServerAmmo)
+{
+	if (GetLocalRole() == ENetRole::ROLE_Authority) return;
+	Ammo = ServerAmmo;
+	SetHUDAmmo();
+}
+
+void AWeapon::ClientAddAmmo_Implementation(int32 AmmoToAdd)
+{
+	if (GetLocalRole() == ENetRole::ROLE_Authority) return;
+
+	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
+	ATFICharacter* Character = Cast<ATFICharacter>(GetOwner());
+	SetHUDAmmo();
+}
+
 // Called every frame
 void AWeapon::Tick(float DeltaTime)
 {
@@ -177,4 +193,15 @@ void AWeapon::SpendRound()
 {
 	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
 	SetHUDAmmo();
+	if (GetLocalRole() == ENetRole::ROLE_Authority)
+	{
+		ClientUpdateAmmo(Ammo);
+	}
+}
+
+void AWeapon::AddAmmo(int32 AmountToAdd)
+{
+	Ammo = FMath::Clamp(Ammo + AmountToAdd, 0, MagCapacity);
+	SetHUDAmmo();
+	ClientAddAmmo(AmountToAdd);
 }

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "TerraFrameImpact/Enums/CharacterState.h"
+#include "TerraFrameImpact/Enums/WeaponType.h"
 #include "TFICharacter.generated.h"
 
 UCLASS()
@@ -30,6 +31,8 @@ public:
 	void PlayBulletJumpMontage();
 	UFUNCTION()
 	void PlayFireMontage(bool bAiming);
+	UFUNCTION()
+	void PlayReloadMontage(EWeaponType PlaySession);
 
 protected:
 	// Called when the game starts or when spawned
@@ -69,12 +72,17 @@ protected:
 	UFUNCTION()
 	void OnFireButtonReleased();
 
+	UFUNCTION()
+	void OnReloadButtonPressed();
+
 	UPROPERTY(EditAnywhere, Category = "角色动画")
 	class UAnimMontage* SlideMontage;
 	UPROPERTY(EditAnywhere, Category = "角色动画")
 	class UAnimMontage* BulletJumpMontage;
 	UPROPERTY(EditAnywhere, Category = "角色动画")
 	class UAnimMontage* FireMontage;
+	UPROPERTY(EditAnywhere, Category = "角色动画")
+	class UAnimMontage* ReloadMontage;
 
 	void AimOffset(float DeltaTime);
 	void CalculateAO_Pitch(float DeltaTime);
@@ -118,6 +126,8 @@ private:
 	UInputAction* CrouchAction;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "EnhancedInput", meta = (AllowPrivateAccess = "true"))
 	UInputAction* FireAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "EnhancedInput", meta = (AllowPrivateAccess = "true"))
+	UInputAction* ReloadAction;
 
 	/**
 	* 瞄准偏移（给动画用的）
@@ -151,4 +161,5 @@ public:
 	bool IsAiming();
 	bool IsHoldingWeapon();
 	ECharacterState GetCharacterState();
+	FORCEINLINE UTFICombatComponent* GetCombatComponent() const { return CombatComponent; };
 };

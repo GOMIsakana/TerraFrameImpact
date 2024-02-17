@@ -7,6 +7,7 @@
 #include "TerraFrameImpact/Enums/WeaponState.h"
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
+#include "TerraFrameImpact/Enums/WeaponType.h"
 #include "Weapon.generated.h"
 
 UCLASS()
@@ -71,6 +72,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "武器基本资产")
 	class UAnimationAsset* FireAnimation;
 
+	UPROPERTY(EditAnywhere, Category = "武器基本资产")
+	EWeaponType WeaponType = EWeaponType::EWT_AssultRifle;
+
 private:
 
 	UFUNCTION()
@@ -78,19 +82,34 @@ private:
 	void OnSetWeaponState();
 	void OnHasOwner();
 	void OnDropped();
+	
+	UPROPERTY(EditAnywhere)
+	int32 Ammo;
+	UPROPERTY(EditAnywhere)
+	int32 CarriedAmmo;
+	UPROPERTY(EditAnywhere)
+	int32 MagCapacity;
+	UPROPERTY(EditAnywhere)
+	int32 MaxCarriedAmmo;
+
+	UFUNCTION(Client, Reliable)
+	void ClientUpdateAmmo(int32 ServerAmmo);
+	UFUNCTION(Client, Reliable)
+	void ClientAddAmmo(int32 AmmoToAdd);
 
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 	USkeletalMeshComponent* GetWeaponMesh();
 
-	UPROPERTY(EditAnywhere)
-	int32 Ammo;
-
 	void SpendRound();
-
-	UPROPERTY(EditAnywhere)
-	int32 MagCapacity;
+	void AddAmmo(int32 AmountToAdd);
 
 	FORCEINLINE bool IsEmpty() const { return Ammo <= 0; };
+	FORCEINLINE bool IsFull() const { return Ammo >= MagCapacity; };
+	FORCEINLINE int32 GetAmmo() const { return Ammo; };
+	FORCEINLINE int32 GetMagCapacity() const { return MagCapacity; };
+	FORCEINLINE int32 GetCarriedAmmo() const { return CarriedAmmo; };
+	FORCEINLINE int32 GetMaxCarriedAmmo() const { return MaxCarriedAmmo; };
+	FORCEINLINE EWeaponType GetWeaponType() const { return WeaponType; };
 };

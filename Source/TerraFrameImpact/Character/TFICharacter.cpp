@@ -17,6 +17,7 @@
 #include "Animation/AnimInstance.h"
 #include "Components/CapsuleComponent.h"
 #include "TerraFrameImpact/TerraFrameImpact.h"
+#include "TerraFrameImpact/Enums/WeaponType.h"
 
 ATFICharacter::ATFICharacter()
 {
@@ -125,6 +126,10 @@ void ATFICharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 		{
 			EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, this, &ATFICharacter::OnFireButtonPressed);
 			EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &ATFICharacter::OnFireButtonReleased);
+		}
+		if (ReloadAction)
+		{
+			EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &ATFICharacter::OnReloadButtonPressed);
 		}
 	}
 	//PlayerInputComponent->BindAction(FName("Move"), ETriggerEvent::Triggered, this, );
@@ -319,6 +324,14 @@ void ATFICharacter::OnFireButtonReleased()
 	}
 }
 
+void ATFICharacter::OnReloadButtonPressed()
+{
+	if (CombatComponent)
+	{
+		CombatComponent->ReloadWeapon();
+	}
+}
+
 void ATFICharacter::PlaySlideMontage()
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
@@ -351,6 +364,23 @@ void ATFICharacter::PlayFireMontage(bool bAiming)
 	{
 		AnimInstance->Montage_JumpToSection(FName("Hip"));
 	}
+}
+
+void ATFICharacter::PlayReloadMontage(EWeaponType PlaySession)
+{
+	if (CombatComponent == nullptr || CombatComponent->HoldingWeapon == nullptr) return;
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance == nullptr || ReloadMontage == nullptr) return;
+
+	AnimInstance->Montage_Play(ReloadMontage);
+	FName SessionName = FName("Rifle");
+	switch (PlaySession)
+	{
+	case EWeaponType::EWT_AssultRifle:
+		SessionName = FName("Rifle");
+		break;
+	}
+	AnimInstance->Montage_JumpToSection(SessionName);
 }
 
 void ATFICharacter::ServerOnInteract_Implementation()

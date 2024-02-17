@@ -30,6 +30,7 @@ void UTFICombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(UTFICombatComponent, bIsDashing);
 	DOREPLIFETIME(UTFICombatComponent, CharacterState);
 	DOREPLIFETIME(UTFICombatComponent, BulletJumpFacingRotator);
+	DOREPLIFETIME_CONDITION(UTFICombatComponent, CurrentCarriedAmmo, COND_OwnerOnly);
 }
 
 // Called when the game starts
@@ -161,13 +162,18 @@ void UTFICombatComponent::EquipWeapon(AWeapon* TargetWeapon)
 	HoldingWeapon->SetWeaponState(EWeaponState::EWS_HasOwner);
 	HoldingWeapon->ShowPickupWidget(false);
 	HoldingWeapon->SetHUDAmmo();
+	if (Character->HasAuthority())
+	{
+		InitCarriedAmmo();
+	}
+	UpdateCarriedValue();
 	if (Character->GetCharacterMovement() != nullptr)
 	{
 		Character->GetCharacterMovement()->bOrientRotationToMovement = false;
 	}
 	Character->bUseControllerRotationYaw = true;
 	AttachActorToCharacterMesh(HoldingWeapon, FName("WeaponSocket"));
-
+	ReloadEmptyWeapon();
 }
 
 void UTFICombatComponent::DropWeapon()
@@ -186,6 +192,7 @@ void UTFICombatComponent::OnRep_HoldingWeapon()
 	HoldingWeapon->SetOwner(Character);
 	HoldingWeapon->SetWeaponState(EWeaponState::EWS_HasOwner);
 	HoldingWeapon->ShowPickupWidget(false);
+	HoldingWeapon->SetHUDAmmo();
 	if (Character->GetCharacterMovement() != nullptr)
 	{
 		Character->GetCharacterMovement()->bOrientRotationToMovement = false;
@@ -218,14 +225,12 @@ void UTFICombatComponent::Dash(bool state)
 void UTFICombatComponent::ServerStartDash_Implementation()
 {
 	if (Character == nullptr || Character->GetCharacterMovement() == nullptr) return;
-	bIsDashing = true;
 	Character->GetCharacterMovement()->MaxWalkSpeed = DashSpeed;
 }
 
 void UTFICombatComponent::ServerStopDash_Implementation()
 {
 	if (Character == nullptr || Character->GetCharacterMovement() == nullptr) return;
-	bIsDashing = false;
 	Character->GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
 }
 
@@ -294,6 +299,7 @@ void UTFICombatComponent::ServerFire_Implementation(const FVector_NetQuantize& T
 void UTFICombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TargetPos)
 {
 	if (Character && Character->IsLocallyControlled() && !Character->HasAuthority()) return;
+	// 这里是为了只让想开枪的玩家，或者服务器上的玩家开枪
 	LocalFire(TargetPos);
 }
 
@@ -331,7 +337,116 @@ void UTFICombatComponent::FireTimerFinished()
 	{
 		Fire();
 	}
+	ReloadEmptyWeapon();
+}
 
+void UTFICombatComponent::ReloadWeapon()
+{
+	if (CurrentCarriedAmmo <= 0 || HoldingWeapon == nullptr || CharacterState != ECharacterState::ECS_Normal || HoldingWeapon->IsFull()) return;
+	ServerReload();
+	LocalReload();
+	bIsReloading = true;
+}
+
+void UTFICombatComponent::ServerReload_Implementation()
+{
+	if (Character == nullptr || HoldingWeapon == nullptr) return;
+
+	CharacterState = ECharacterState::ECS_Reload;
+	if (!Character->IsLocallyControlled()) LocalReload();
+}
+
+void UTFICombatComponent::OnRep_CarriedAmmo()
+{
+	Controller = Controller == nullptr ? Cast<ATFIPlayerController>(Character->Controller) : Controller;
+	if (Controller)
+	{
+		Controller->SetHUDCarriedAmmo(CurrentCarriedAmmo);
+	}
+}
+
+void UTFICombatComponent::LocalReload()
+{
+	if (Character && HoldingWeapon)
+	{
+		Character->PlayReloadMontage(HoldingWeapon->GetWeaponType());
+	}
+}
+
+int32 UTFICombatComponent::AmountToReload()
+{
+	if (HoldingWeapon == nullptr) return 0;
+	int32 MagSpace = HoldingWeapon->GetMagCapacity() - HoldingWeapon->GetAmmo();
+
+	if (CarriedAmmoMap.Contains(HoldingWeapon->GetWeaponType()))
+	{
+		int32 AmountCarried = CarriedAmmoMap[HoldingWeapon->GetWeaponType()];
+		int32 Least = FMath::Min(MagSpace, AmountCarried);
+		return FMath::Clamp(MagSpace, 0, Least);
+	}
+	return 0;
+}
+
+void UTFICombatComponent::ReloadEmptyWeapon()
+{
+	if (HoldingWeapon && HoldingWeapon->IsEmpty())
+	{
+		ReloadWeapon();
+	}
+}
+
+void UTFICombatComponent::ReloadCompleted()
+{
+	if (Character == nullptr) return;
+	bIsReloading = false;
+	if (Character->HasAuthority())
+	{
+		CharacterState = ECharacterState::ECS_Normal; 
+		UpdateAmmoValue();
+	}
+	if (bFireButtonPressed)
+	{
+		Fire();
+	}
+}
+
+void UTFICombatComponent::InitCarriedAmmo()
+{
+	if (HoldingWeapon == nullptr) return;
+	CarriedAmmoMap.Emplace(HoldingWeapon->GetWeaponType(), HoldingWeapon->GetCarriedAmmo());
+}
+
+void UTFICombatComponent::UpdateAmmoValue()
+{
+	if (Character == nullptr || HoldingWeapon == nullptr) return;
+	int32 ReloadAmount = AmountToReload();
+	if (CarriedAmmoMap.Contains(HoldingWeapon->GetWeaponType()))
+	{
+		CarriedAmmoMap[HoldingWeapon->GetWeaponType()] -= ReloadAmount;
+		CurrentCarriedAmmo = CarriedAmmoMap[HoldingWeapon->GetWeaponType()];
+	}
+
+	Controller = Controller == nullptr ? Cast<ATFIPlayerController>(Character->Controller) : Controller;
+	if (Controller)
+	{
+		Controller->SetHUDCarriedAmmo(CurrentCarriedAmmo);
+	}
+	HoldingWeapon->AddAmmo(ReloadAmount);
+}
+
+void UTFICombatComponent::UpdateCarriedValue()
+{
+	if (Character == nullptr || HoldingWeapon == nullptr) return;
+	if (CarriedAmmoMap.Contains(HoldingWeapon->GetWeaponType()))
+	{
+		CurrentCarriedAmmo = CarriedAmmoMap[HoldingWeapon->GetWeaponType()];
+	}
+
+	Controller = Controller == nullptr ? Cast<ATFIPlayerController>(Character->Controller) : Controller;
+	if (Controller)
+	{
+		Controller->SetHUDCarriedAmmo(CurrentCarriedAmmo);
+	}
 }
 
 void UTFICombatComponent::Slide()
@@ -458,6 +573,21 @@ void UTFICombatComponent::InitBulletJump()
 		{
 			BulletJumpFacingVector.Z = 0.f;
 		}
+	}
+}
+
+void UTFICombatComponent::OnRep_CharacterState()
+{
+	switch (CharacterState)
+	{
+	case ECharacterState::ECS_Reload:
+		if (Character != nullptr && !Character->IsLocallyControlled()) LocalReload();
+		break;
+	case ECharacterState::ECS_Normal:
+		if (bFireButtonPressed) Fire();
+		break;
+	default:
+		return;
 	}
 }
 

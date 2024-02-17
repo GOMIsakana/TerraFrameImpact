@@ -26,6 +26,7 @@ public:
 
 	void SetAiming(bool state);
 	void SetFiring(bool state);
+	void ReloadWeapon();
 	void SetDashButtonPressed(bool state);
 	void ReduceBulletJumpLimit(int32 ReduceAmount);
 	void ResetBulletJumpLimit();
@@ -55,6 +56,7 @@ private:
 	UPROPERTY(Replicated = true)
 	bool bIsDashing = false;
 	bool bDashButtonPressed = false;
+	bool bIsReloading = false;
 
 	UFUNCTION()
 	void EquipWeapon(AWeapon* TargetWeapon);
@@ -90,7 +92,22 @@ private:
 	void FireTimerFinished();
 	bool bCanFire = true;
 	bool bFireButtonPressed;
-
+	UPROPERTY(ReplicatedUsing = OnRep_CarriedAmmo)
+	int32 CurrentCarriedAmmo;
+	UFUNCTION()
+	void OnRep_CarriedAmmo();
+	UFUNCTION(Server, Reliable)
+	void ServerReload();
+	void LocalReload();
+	int32 AmountToReload();
+	void ReloadEmptyWeapon();
+	UFUNCTION(BlueprintCallable)
+	void ReloadCompleted();
+	bool CanFire();
+	TMap<EWeaponType, int32> CarriedAmmoMap;
+	void InitCarriedAmmo();
+	void UpdateAmmoValue();
+	void UpdateCarriedValue();
 
 	UFUNCTION()
 	void Slide();
@@ -150,8 +167,10 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move", meta = (AllowPrivateAccess = "true"))
 	float CrouchSpeed = 200.f;
 
-	UPROPERTY(Replicated = true)
+	UPROPERTY(ReplicatedUsing = OnRep_CharacterState)
 	ECharacterState CharacterState = ECharacterState::ECS_Normal;
+	UFUNCTION()
+	void OnRep_CharacterState();
 
 	UPROPERTY()
 	class ATFIPlayerController* Controller;
@@ -162,8 +181,6 @@ private:
 	float CrosshairFallingFactor;
 	float CrosshairAimFactor;
 	float CrosshairShootFactor;
-
-	bool CanFire();
 
 public:	
 	UFUNCTION(BlueprintCallable)
