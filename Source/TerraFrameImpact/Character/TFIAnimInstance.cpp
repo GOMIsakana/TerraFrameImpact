@@ -36,6 +36,7 @@ void UTFIAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	bIsAccelerating = Character->GetCharacterMovement()->GetCurrentAcceleration().Size() > 0.f ? true : false;
 	bIsCrouched = Character->bIsCrouched;
 	bIsAiming = Character->IsAiming();
+	bPreparingBattle = Character->GetPreparingBattle();
 	bIsDashing = Character->IsDashing();
 	bIsHoldingWeapon = Character->IsHoldingWeapon();
 	bCrouchButtonPressed = Character->GetCrouchButtonPressed();

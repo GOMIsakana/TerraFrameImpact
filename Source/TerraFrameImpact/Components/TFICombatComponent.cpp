@@ -5,6 +5,7 @@
 #include "Net/UnrealNetwork.h"
 #include "TerraFrameImpact/Enums/WeaponState.h"
 #include "TerraFrameImpact/Weapons/Weapon.h"
+#include "TerraFrameImpact/Weapons/ShotgunWeapon.h"
 #include "TerraFrameImpact/Character/TFICharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "TerraFrameImpact/Enums/CharacterState.h"
@@ -119,7 +120,7 @@ void UTFICombatComponent::SetHUDCrosshairs(float DeltaTime)
 			}
 			if (bIsAiming)
 			{
-				CrosshairAimFactor = FMath::FInterpTo(CrosshairAimFactor, .5f, DeltaTime, .5f);
+				CrosshairAimFactor = FMath::FInterpTo(CrosshairAimFactor, .5f, DeltaTime, 1.f);
 			}
 			else
 			{
@@ -276,14 +277,73 @@ void UTFICombatComponent::TraceUnderCrossHair(FHitResult& HitResult)
 void UTFICombatComponent::Fire()
 {
 	if (!CanFire()) return;
-	if (HoldingWeapon == nullptr || Character == nullptr || Character->GetCharacterState() != ECharacterState::ECS_Normal) return;
-	// 非服务器的话开火一下
-	if (!Character->HasAuthority()) LocalFire(HitTarget);
-	// 服务器多播一下开火
-	ServerFire(HitTarget);
 	bCanFire = false;
-	CrosshairShootFactor = .75f;
+	if (Character)
+	{
+		FVector Velocity = Character->GetVelocity();
+		Velocity.Z = 0.f;
+		float Speed = Velocity.Size();
+		if (Speed > 0.f || Character->GetAO_YawOutofRange())
+		{
+			StartPreparingBattleTimer();
+		}
+	}
+	
+	if (HoldingWeapon != nullptr)
+	{
+		CrosshairShootFactor = .75f;
+		switch (HoldingWeapon->GetFireType())
+		{
+		case EFireType::EFT_Projectile:
+			FireProjectileWeapon();
+			break;
+		case EFireType::EFT_HitScan:
+			FireHitScanWeapon();
+			break;
+		case EFireType::EFT_MultiHitScan:
+			FireShotgunWeapon();
+			break;
+		default:
+			break;
+		}
+	}
 	StartFireTimer();
+}
+
+void UTFICombatComponent::FireProjectileWeapon()
+{
+	if (HoldingWeapon == nullptr || Character == nullptr) return;
+	HitTarget = HoldingWeapon->bEnableSpread ? HoldingWeapon->TraceEndWithSpread(HitTarget) : HitTarget;
+	if (!Character->HasAuthority()) LocalFire(HitTarget);
+	ServerFire(HitTarget);
+}
+
+void UTFICombatComponent::FireHitScanWeapon()
+{
+	if (HoldingWeapon == nullptr || Character == nullptr) return;
+	HitTarget = HoldingWeapon->bEnableSpread ? HoldingWeapon->TraceEndWithSpread(HitTarget) : HitTarget;
+	if (!Character->HasAuthority()) LocalFire(HitTarget);
+	ServerFire(HitTarget);
+}
+
+void UTFICombatComponent::FireShotgunWeapon()
+{
+	AShotgunWeapon* Weapon = Cast<AShotgunWeapon>(HoldingWeapon);
+	if (Weapon == nullptr || Character == nullptr) return;
+	TArray<FVector_NetQuantize> HitTargets;
+	if (Weapon->bEnableSpread)
+	{
+		Weapon->ShotgunTraceEndWithSpread(HitTarget, HitTargets);
+	}
+	else
+	{
+		for (uint32 i = 0; i < Weapon->GetNumberOfBullets(); i++)
+		{
+			HitTargets.Add(HitTarget);
+		}
+	}
+	if (!Character->HasAuthority()) LocalShotgunFire(HitTargets);
+	ServerShotgunFire(HitTargets);
 }
 
 void UTFICombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TargetPos)
@@ -310,11 +370,28 @@ void UTFICombatComponent::LocalFire(const FVector_NetQuantize& TargetPos)
 	{
 		Character->PlayFireMontage(bIsAiming);
 		HoldingWeapon->Fire(TargetPos);
-		/* 射击时快速转向至瞄准目标
-		if (Character == nullptr) return;
-		FRotator CharacterRotation(0.f, Character->GetBaseAimRotation().Yaw, 0.f);
-		Character->SetActorRotation(CharacterRotation);
-		*/
+	}
+}
+
+void UTFICombatComponent::ServerShotgunFire_Implementation(const TArray<FVector_NetQuantize>& TargetPosList)
+{
+	MulticastShotgunFire(TargetPosList);
+}
+
+void UTFICombatComponent::MulticastShotgunFire_Implementation(const TArray<FVector_NetQuantize>& TargetPosList)
+{
+	if (Character && Character->IsLocallyControlled() && !Character->HasAuthority()) return;
+	LocalShotgunFire(TargetPosList);
+}
+
+void UTFICombatComponent::LocalShotgunFire(const TArray<FVector_NetQuantize>& TargetPosList)
+{
+	if (HoldingWeapon == nullptr) return;
+	if (Character && CharacterState == ECharacterState::ECS_Normal)
+	{
+		Character->PlayFireMontage(bIsAiming);
+		AShotgunWeapon* Weapon = Cast<AShotgunWeapon>(HoldingWeapon);
+		Weapon->FireShotgun(TargetPosList);
 	}
 }
 
@@ -354,6 +431,30 @@ void UTFICombatComponent::ServerReload_Implementation()
 
 	CharacterState = ECharacterState::ECS_Reload;
 	if (!Character->IsLocallyControlled()) LocalReload();
+}
+
+void UTFICombatComponent::StartPreparingBattleTimer()
+{
+	if (Character == nullptr) return;
+
+	GetWorld()->GetTimerManager().SetTimer(
+		PreparingBattleTimer,
+		this,
+		&UTFICombatComponent::PreparingBattleTimerFinished,
+		5.f
+	);
+	bPreparingBattle = true;
+}
+
+void UTFICombatComponent::ClearPreparingBattleTimer()
+{
+	bPreparingBattle = false;
+	GetWorld()->GetTimerManager().ClearTimer(PreparingBattleTimer);
+}
+
+void UTFICombatComponent::PreparingBattleTimerFinished()
+{
+	bPreparingBattle = false;
 }
 
 void UTFICombatComponent::OnRep_CarriedAmmo()

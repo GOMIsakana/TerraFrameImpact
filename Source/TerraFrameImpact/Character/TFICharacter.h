@@ -139,6 +139,8 @@ private:
 	float AO_Pitch;
 	float LastFrameAO_Pitch;
 	FRotator StartingAimRotation;
+	bool bAO_YawOutofRange = false;
+	bool bAO_PitchOutofRange = false;
 
 	bool bShouldRotateRootBone = false;
 
@@ -151,12 +153,17 @@ private:
 public:
 
 	FORCEINLINE float GetAO_Yaw() const { return AO_Yaw; }
+	FORCEINLINE void SetAO_Yaw(float NewYaw) {  AO_Yaw = NewYaw; }
 	FORCEINLINE float GetAO_Pitch() const { return AO_Pitch; }
+	FORCEINLINE void SetStartingAimRotation(FRotator NewStartingAimRotation) { StartingAimRotation = NewStartingAimRotation; }
+	FORCEINLINE bool GetAO_YawOutofRange() const { return bAO_YawOutofRange; }
+	FORCEINLINE bool GetAO_PitchOutofRange() const { return bAO_PitchOutofRange; }
 	FORCEINLINE bool GetShouldRotateRootBone() const { return bShouldRotateRootBone; }
 	FORCEINLINE bool GetCrouchButtonPressed() const { return bCrouchButtonPressed; }
 	FORCEINLINE UTimelineComponent* GetSlideTimeline() const { return SlideTimeline; }
 	FORCEINLINE UTimelineComponent* GetBulletJumpTimeline() const { return BulletJumpTimeline; }
 	AWeapon* GetHoldingWeapon();
+	bool GetPreparingBattle();
 	bool IsDashing();
 	bool IsAiming();
 	bool IsHoldingWeapon();

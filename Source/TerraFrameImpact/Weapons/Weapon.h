@@ -8,6 +8,8 @@
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
 #include "TerraFrameImpact/Enums/WeaponType.h"
+#include "TerraFrameImpact/Enums/FireType.h"
+#include "Sound/SoundCue.h"
 #include "Weapon.generated.h"
 
 UCLASS()
@@ -21,20 +23,21 @@ public:
 
 	UFUNCTION()
 	void ShowPickupWidget(bool bVisible);
-
 	UFUNCTION()
 	void SetWeaponState(EWeaponState State);
-
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-
 	virtual void Fire(const FVector& TargetPos);
 	void SetHUDAmmo();
+	FVector TraceEndWithSpread(const FVector& HitTarget);
 
-	UPROPERTY(EditAnywhere, Category = "武器基本资产")
+	UPROPERTY(EditAnywhere, Category = "武器属性")
 	float FireDelay = .15f;
 
-	UPROPERTY(EditAnywhere, Category = "武器基本资产")
+	UPROPERTY(EditAnywhere, Category = "武器属性")
 	bool bAutomatic = true;
+
+	UPROPERTY(EditAnywhere, Category = "武器属性")
+	bool bEnableSpread = true;
 
 	UPROPERTY(EditAnywhere, Category = "准心")
 	class UTexture2D* CrosshairsTop;
@@ -72,8 +75,20 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "武器基本资产")
 	class UAnimationAsset* FireAnimation;
 
-	UPROPERTY(EditAnywhere, Category = "武器基本资产")
+	UPROPERTY(EditAnywhere, Category = "武器属性")
 	EWeaponType WeaponType = EWeaponType::EWT_AssultRifle;
+
+	UPROPERTY(EditAnywhere, Category = "武器属性")
+	EFireType FireType;
+
+	UPROPERTY(EditAnywhere, Category = "武器属性")
+	float SpreadSphereRadius = 100.f;
+
+	UPROPERTY(EditAnywhere, Category = "武器属性")
+	float SpreadSphereDistance = 800.f;
+
+	UPROPERTY(EditAnywhere, Category = "武器属性")
+	float Damage = 20.f;
 
 private:
 
@@ -112,4 +127,5 @@ public:
 	FORCEINLINE int32 GetCarriedAmmo() const { return CarriedAmmo; };
 	FORCEINLINE int32 GetMaxCarriedAmmo() const { return MaxCarriedAmmo; };
 	FORCEINLINE EWeaponType GetWeaponType() const { return WeaponType; };
+	FORCEINLINE EFireType GetFireType() const { return FireType; };
 };

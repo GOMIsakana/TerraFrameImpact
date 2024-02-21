@@ -168,7 +168,10 @@ AWeapon* ATFICharacter::GetHoldingWeapon()
 	}
 	return nullptr;
 }
-
+bool ATFICharacter::GetPreparingBattle()
+{
+	return CombatComponent && CombatComponent->bPreparingBattle;
+}
 ECharacterState ATFICharacter::GetCharacterState()
 {
 	if (CombatComponent)
@@ -428,9 +431,13 @@ void ATFICharacter::AimOffset(float DeltaTime)
 	if (GetCharacterMovement() == nullptr) return;
 	float Speed = CalculateSpeed();
 	bool bIsInAir = GetCharacterMovement()->IsFalling();
+	if (CombatComponent && Speed == 0.f && !bAO_YawOutofRange)
+	{
+		CombatComponent->ClearPreparingBattleTimer();
+	}
 
 	// 不瞄准的时候才使用ASD控制角色方向
-	if (CombatComponent && !CombatComponent->bIsAiming)
+	if (CombatComponent && !CombatComponent->bIsAiming && !CombatComponent->bPreparingBattle)
 	{
 		// 这里是左右的(Yaw)
 		if (Speed == 0.f && !bIsInAir)
@@ -442,10 +449,12 @@ void ATFICharacter::AimOffset(float DeltaTime)
 			// 对于超过扭头角度的，不做响应（例如玩家正在看角色正面），从当前的脑袋旋转逐步回正到正面
 			if (AO_Yaw < -90.f || AO_Yaw > 90.f)
 			{
+				bAO_YawOutofRange = true;
 				AO_Yaw = FMath::FInterpTo(LastFrameAO_Yaw, 0.f, DeltaTime, 3.f);
 			}
 			else
 			{
+				bAO_YawOutofRange = false;
 				AO_Yaw = FMath::FInterpTo(LastFrameAO_Yaw, DeltaRotation.Yaw, DeltaTime, 3.f);
 			}
 			bUseControllerRotationYaw = false;
@@ -453,6 +462,7 @@ void ATFICharacter::AimOffset(float DeltaTime)
 		}
 		if (Speed > 0.f || bIsInAir)
 		{
+			bAO_YawOutofRange = false;
 			bUseControllerRotationYaw = false;
 			if (bIsInAir)
 			{
@@ -469,9 +479,11 @@ void ATFICharacter::AimOffset(float DeltaTime)
 	}
 	else
 	{
+		StartingAimRotation = FRotator(0.f, GetActorRotation().Yaw, 0.f);
 		AO_Yaw = 0.f;
 		bUseControllerRotationYaw = true;
 		GetCharacterMovement()->bOrientRotationToMovement = false;
+		bAO_YawOutofRange = false;
 	}
 	// 这里是上下的(Pitch)
 	CalculateAO_Pitch(DeltaTime);
@@ -479,6 +491,7 @@ void ATFICharacter::AimOffset(float DeltaTime)
 
 void ATFICharacter::CalculateAO_Pitch(float DeltaTime)
 {
+	bAO_PitchOutofRange = false;
 	LastFrameAO_Pitch = AO_Pitch;
 	AO_Pitch = GetBaseAimRotation().Pitch;
 	// 因为客机传输不会传负数，所以需要将正270~360度修正到-90~0度这个区间
@@ -491,6 +504,7 @@ void ATFICharacter::CalculateAO_Pitch(float DeltaTime)
 	// 对于超过的角度，逐步回正到原来的位置
 	if (AO_Pitch > 90.f || AO_Pitch < -90.f)
 	{
+		bAO_PitchOutofRange = true;
 		AO_Pitch = FMath::FInterpTo(LastFrameAO_Pitch, 0.f, DeltaTime, 3.f);
 	}
 }

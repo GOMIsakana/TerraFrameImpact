@@ -79,11 +79,19 @@ private:
 
 	void TraceUnderCrossHair(FHitResult& HitResult);
 	void Fire();
+	void FireProjectileWeapon();
+	void FireHitScanWeapon();
+	void FireShotgunWeapon();
 	UFUNCTION(Server, Reliable)
 	void ServerFire(const FVector_NetQuantize& TargetPos);
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastFire(const FVector_NetQuantize& TargetPos);
 	void LocalFire(const FVector_NetQuantize& TargetPos);
+	UFUNCTION(Server, Reliable)
+	void ServerShotgunFire(const TArray<FVector_NetQuantize>& TargetPosList);
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastShotgunFire(const TArray<FVector_NetQuantize>& TargetPosList);
+	void LocalShotgunFire(const TArray<FVector_NetQuantize>& TargetPosList);
 	FVector HitTarget;
 	FTimerHandle FireTimer;
 	UFUNCTION()
@@ -92,6 +100,15 @@ private:
 	void FireTimerFinished();
 	bool bCanFire = true;
 	bool bFireButtonPressed;
+	bool bPreparingBattle = false;
+	FTimerHandle PreparingBattleTimer;
+	UFUNCTION()
+	void StartPreparingBattleTimer();
+	UFUNCTION()
+	void ClearPreparingBattleTimer();
+	UFUNCTION()
+	void PreparingBattleTimerFinished();
+
 	UPROPERTY(ReplicatedUsing = OnRep_CarriedAmmo)
 	int32 CurrentCarriedAmmo;
 	UFUNCTION()

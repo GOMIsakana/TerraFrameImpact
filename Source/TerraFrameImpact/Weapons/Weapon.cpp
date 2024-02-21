@@ -9,6 +9,8 @@
 #include "TerraFrameImpact/PlayerController/TFIPlayerController.h"
 #include "Net/UnrealNetwork.h"
 #include "DrawDebugHelpers.h"
+#include "Engine/SkeletalMeshSocket.h"
+#include "Kismet/KismetMathLibrary.h"
 
 // Sets default values
 AWeapon::AWeapon()
@@ -187,6 +189,32 @@ void AWeapon::SetHUDAmmo()
 			Controller->SetHUDWeaponAmmo(Ammo);
 		}
 	}
+}
+
+FVector AWeapon::TraceEndWithSpread(const FVector& HitTarget)
+{
+	const USkeletalMeshSocket* MuzzleSocket = GetWeaponMesh()->GetSocketByName(FName("MuzzleFlash"));
+	if (MuzzleSocket == nullptr) return FVector();
+
+	const FTransform SocketTransform = MuzzleSocket->GetSocketTransform(GetWeaponMesh());
+	const FVector TraceStart = SocketTransform.GetLocation();
+
+	const FVector ToTargetNormailzed = (HitTarget - TraceStart).GetSafeNormal();	// normal得到的应该是一个长度在1之内的向量
+	const FVector SphereCenter = TraceStart + ToTargetNormailzed * SpreadSphereDistance;	// 从枪口位置到椭圆位置的距离
+	const FVector RandVector = UKismetMathLibrary::RandomUnitVector() * FMath::FRandRange(0.f, SpreadSphereRadius);	// 从椭圆位置随机取点
+	const FVector EndLocation = SphereCenter + RandVector;	// 获取随机点的位置
+	const FVector ToEndLocation = EndLocation - TraceStart;	// 枪口到随机点的位置的向量
+	/*
+	DrawDebugSphere(GetWorld(), SphereCenter, SpreadSphereRadius, 12, FColor::Red, true);
+	DrawDebugSphere(GetWorld(), EndLocation, 4.f, 12, FColor::Orange, true);
+	DrawDebugLine(
+		GetWorld(),
+		TraceStart,
+		FVector(TraceStart + ToEndLocation * 80000.f / ToEndLocation.Size()),
+		FColor::Cyan,
+		true);
+	*/
+	return FVector(TraceStart + ToEndLocation * 80000.f / ToEndLocation.Size());
 }
 
 void AWeapon::SpendRound()
