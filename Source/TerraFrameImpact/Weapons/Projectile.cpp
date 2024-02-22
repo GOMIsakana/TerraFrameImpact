@@ -104,6 +104,32 @@ void AProjectile::SpawnTrailSystem()
 	}
 }
 
+void AProjectile::ExplodeDamage()
+{
+
+	APawn* FiringPawn = GetInstigator();
+	if (FiringPawn && HasAuthority())
+	{
+		AController* FiringController = FiringPawn->GetController();
+		if (FiringController)
+		{
+			UGameplayStatics::ApplyRadialDamageWithFalloff(
+				this, // World context object
+				ExplodeMaxDamage, // BaseDamage
+				ExplodeMinDamage, // MinimumDamage
+				GetActorLocation(), // Origin
+				DamageInnerRadius, // DamageInnerRadius
+				DamageOuterRadius, // DamageOuterRadius
+				1.f, // DamageFalloff
+				UDamageType::StaticClass(), // DamageTypeClass
+				TArray<AActor*>(), // IgnoreActors
+				this, // DamageCauser
+				FiringController // InstigatorController
+			);
+		}
+	}
+}
+
 void AProjectile::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, FVector NormalImpulse, const FHitResult& HitResult)
 {
 	Destroy();

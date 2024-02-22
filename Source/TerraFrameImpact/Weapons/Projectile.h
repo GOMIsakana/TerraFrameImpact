@@ -31,12 +31,25 @@ protected:
 	void StartDestroyTimer();
 	void DestroyTimerFinished();
 	void SpawnTrailSystem();
+	void ExplodeDamage();
 
 	UFUNCTION()
 	virtual void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, FVector NormalImpulse, const FHitResult& HitResult);
 
 	UPROPERTY(EditAnywhere)
 	float Damage = 20.f;
+
+	UPROPERTY(EditAnywhere)
+	float DamageInnerRadius = 400.f;
+
+	UPROPERTY(EditAnywhere)
+	float DamageOuterRadius = 800.f;
+
+	UPROPERTY(EditAnywhere)
+	float ExplodeMaxDamage = 100.f;
+
+	UPROPERTY(EditAnywhere)
+	float ExplodeMinDamage = 10.f;
 
 	UPROPERTY(EditAnywhere)
 	UParticleSystem* ImpactParticle;

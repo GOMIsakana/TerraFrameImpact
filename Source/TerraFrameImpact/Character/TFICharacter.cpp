@@ -436,16 +436,16 @@ void ATFICharacter::AimOffset(float DeltaTime)
 		CombatComponent->ClearPreparingBattleTimer();
 	}
 
+	LastFrameAO_Yaw = AO_Yaw;		// 记录上一帧的AO_Yaw,以保证回正操作正常执行
+	FRotator CurAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+	FRotator DeltaRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurAimRotation, StartingAimRotation);
+	AO_Yaw = DeltaRotation.Yaw;
 	// 不瞄准的时候才使用ASD控制角色方向
-	if (CombatComponent && !CombatComponent->bIsAiming && !CombatComponent->bPreparingBattle)
+	if (CombatComponent && !(CombatComponent->bIsAiming || CombatComponent->bPreparingBattle))
 	{
 		// 这里是左右的(Yaw)
 		if (Speed == 0.f && !bIsInAir)
 		{
-			LastFrameAO_Yaw = AO_Yaw;		// 记录上一帧的AO_Yaw,以保证回正操作正常执行
-			FRotator CurAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
-			FRotator DeltaRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurAimRotation, StartingAimRotation);
-			AO_Yaw = DeltaRotation.Yaw;
 			// 对于超过扭头角度的，不做响应（例如玩家正在看角色正面），从当前的脑袋旋转逐步回正到正面
 			if (AO_Yaw < -90.f || AO_Yaw > 90.f)
 			{
@@ -479,12 +479,13 @@ void ATFICharacter::AimOffset(float DeltaTime)
 	}
 	else
 	{
-		StartingAimRotation = FRotator(0.f, GetActorRotation().Yaw, 0.f);
+		StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 		AO_Yaw = 0.f;
 		bUseControllerRotationYaw = true;
 		GetCharacterMovement()->bOrientRotationToMovement = false;
 		bAO_YawOutofRange = false;
 	}
+	UE_LOG(LogTemp, Warning, TEXT("Current AO_Yaw: %f  StartAimRot: %f"), AO_Yaw, StartingAimRotation.Yaw);
 	// 这里是上下的(Pitch)
 	CalculateAO_Pitch(DeltaTime);
 }
