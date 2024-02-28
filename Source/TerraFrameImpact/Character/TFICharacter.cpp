@@ -485,7 +485,6 @@ void ATFICharacter::AimOffset(float DeltaTime)
 		GetCharacterMovement()->bOrientRotationToMovement = false;
 		bAO_YawOutofRange = false;
 	}
-	UE_LOG(LogTemp, Warning, TEXT("Current AO_Yaw: %f  StartAimRot: %f"), AO_Yaw, StartingAimRotation.Yaw);
 	// 这里是上下的(Pitch)
 	CalculateAO_Pitch(DeltaTime);
 }

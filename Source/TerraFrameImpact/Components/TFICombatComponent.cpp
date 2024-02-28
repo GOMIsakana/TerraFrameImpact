@@ -120,14 +120,14 @@ void UTFICombatComponent::SetHUDCrosshairs(float DeltaTime)
 			}
 			if (bIsAiming)
 			{
-				CrosshairAimFactor = FMath::FInterpTo(CrosshairAimFactor, .5f, DeltaTime, 1.f);
+				CrosshairAimFactor = FMath::FInterpTo(CrosshairAimFactor, .5f, DeltaTime, 30.f);
 			}
 			else
 			{
-				CrosshairAimFactor = FMath::FInterpTo(CrosshairAimFactor, 0.f, DeltaTime, .5f);
+				CrosshairAimFactor = FMath::FInterpTo(CrosshairAimFactor, 0.f, DeltaTime, 30.f);
 			}
 
-			CrosshairShootFactor = FMath::FInterpTo(CrosshairShootFactor, 0.f, DeltaTime, 40.f);
+			CrosshairShootFactor = FMath::FInterpTo(CrosshairShootFactor, 0.f, DeltaTime, 10.f);
 
 			HUDPackage.CrosshairSpread =
 				.5f +
@@ -204,7 +204,7 @@ void UTFICombatComponent::OnRep_HoldingWeapon()
 
 void UTFICombatComponent::Dash(bool state)
 {
-	if (bIsAiming) return;
+	if (bIsAiming || bPreparingBattle) return;
 	bIsDashing = state;
 	// 本地不设的话会导致鬼畜
 	if (state)
@@ -277,6 +277,8 @@ void UTFICombatComponent::TraceUnderCrossHair(FHitResult& HitResult)
 void UTFICombatComponent::Fire()
 {
 	if (!CanFire()) return;
+	Dash(false);
+
 	bCanFire = false;
 	if (Character)
 	{
@@ -449,12 +451,14 @@ void UTFICombatComponent::StartPreparingBattleTimer()
 void UTFICombatComponent::ClearPreparingBattleTimer()
 {
 	bPreparingBattle = false;
+	Dash(bDashButtonPressed);
 	GetWorld()->GetTimerManager().ClearTimer(PreparingBattleTimer);
 }
 
 void UTFICombatComponent::PreparingBattleTimerFinished()
 {
 	bPreparingBattle = false;
+	Dash(bDashButtonPressed);
 }
 
 void UTFICombatComponent::OnRep_CarriedAmmo()
