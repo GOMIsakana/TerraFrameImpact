@@ -212,14 +212,20 @@ void UTFICombatComponent::Dash(bool state)
 		if (Character == nullptr || Character->GetCharacterMovement() == nullptr) return;
 		bIsDashing = true;
 		Character->GetCharacterMovement()->MaxWalkSpeed = DashSpeed;
-		ServerStartDash();
+		if (Character->GetNetConnection() != nullptr)
+		{
+			ServerStartDash();
+		}
 	}
 	else
 	{
 		if (Character == nullptr || Character->GetCharacterMovement() == nullptr) return;
 		bIsDashing = false;
 		Character->GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
-		ServerStopDash();
+		if (Character->GetNetConnection() != nullptr)
+		{
+			ServerStopDash();
+		}
 	}
 }
 
@@ -699,7 +705,7 @@ void UTFICombatComponent::OnRep_CharacterState()
 bool UTFICombatComponent::CanFire()
 {
 	if (HoldingWeapon == nullptr) return false;
-	return !HoldingWeapon->IsEmpty() && bCanFire && CharacterState == ECharacterState::ECS_Normal;
+	return !HoldingWeapon->IsEmpty() && bCanFire && CharacterState == ECharacterState::ECS_Normal && !Character->GetCharacterMovement()->IsFalling();
 }
 
 void UTFICombatComponent::BulletJumpCompleted()
@@ -743,7 +749,7 @@ void UTFICombatComponent::ServerSetAiming_Implementation(bool state)
 
 void UTFICombatComponent::SetAiming(bool state)
 {
-	if (HoldingWeapon == nullptr) return;
+	if (HoldingWeapon == nullptr || Character->GetCharacterMovement()->IsFalling()) return;
 	bIsAiming = state;
 	ServerSetAiming(bIsAiming);
 	if (bIsAiming)

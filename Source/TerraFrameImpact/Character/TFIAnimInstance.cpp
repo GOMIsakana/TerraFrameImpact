@@ -40,6 +40,7 @@ void UTFIAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	bIsDashing = Character->IsDashing();
 	bIsHoldingWeapon = Character->IsHoldingWeapon();
 	bCrouchButtonPressed = Character->GetCrouchButtonPressed();
+	bIsDying = Character->IsDying() || Character->IsElimmed();
 	HoldingWeapon = Character->GetHoldingWeapon();
 
 	// 锁方向的旋转计算，即角色移动方向距离当前瞄准方向的差值
@@ -63,7 +64,10 @@ void UTFIAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		LeftHandTransfrom.SetLocation(OutPosition);
 		LeftHandTransfrom.SetRotation(FQuat(OutRotation));
 	}
-
-	bUseFABRIK = Character->GetCharacterState() == ECharacterState::ECS_Normal && bIsInAir == false ? true : false;
+	bUseFABRIK = true;
+	if (Character->GetCharacterState() != ECharacterState::ECS_Normal || bIsInAir || Character->IsDying() || Character->IsElimmed())
+	{
+		bUseFABRIK = false;
+	}
 
 }

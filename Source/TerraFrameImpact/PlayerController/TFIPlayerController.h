@@ -18,6 +18,11 @@ public:
 	void SetHUDWeaponAmmo(int32 Ammo);
 	void SetHUDCarriedAmmo(int32 Ammo);
 
+	void SetHUDHealth(float CurHealth, float MaxHealth);
+	void SetHUDShield(float CurShield, float MaxShield);
+
+	void SetHUDRespawnNotify(ESlateVisibility State);
+
 protected:
 	virtual void BeginPlay() override;
 	void PollInit();

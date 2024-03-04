@@ -18,6 +18,8 @@
 #include "Components/CapsuleComponent.h"
 #include "TerraFrameImpact/TerraFrameImpact.h"
 #include "TerraFrameImpact/Enums/WeaponType.h"
+#include "TerraFrameImpact/PlayerController/TFIPlayerController.h"
+#include "TerraFrameImpact/GameMode/TFIGameMode.h"
 
 ATFICharacter::ATFICharacter()
 {
@@ -45,6 +47,8 @@ ATFICharacter::ATFICharacter()
 
 	SlideTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("滑行时间轴"));
 	BulletJumpTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("子弹跳时间轴"));
+
+	GetCharacterMovement()->SetIsReplicated(true);
 }
 
 void ATFICharacter::BeginPlay()
@@ -58,6 +62,12 @@ void ATFICharacter::BeginPlay()
 		GetCharacterMovement()->MaxWalkSpeedCrouched = CombatComponent->CrouchSpeed;
 	}
 
+	if (HasAuthority())
+	{
+		OnTakeAnyDamage.AddDynamic(this, &ATFICharacter::ReceiveDamage);
+	}
+	UpdateHUDHealth();
+	UpdateHUDShield();
 }
 
 void ATFICharacter::Tick(float DeltaTime)
@@ -110,6 +120,7 @@ void ATFICharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 		if (InteractAction)
 		{
 			EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ATFICharacter::OnInteract);
+			// EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Triggered, this, &ATFICharacter::OnRequestElim);
 		}
 		if (DashAction)
 		{
@@ -148,6 +159,8 @@ void ATFICharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 
 	// 条件为OwnerOnly时，只会对本地的客户端进行网络复制，不会影响到服务器（不太懂，总之这样写吧）
 	DOREPLIFETIME_CONDITION(ATFICharacter, OverlappingWeapon, COND_OwnerOnly);
+	DOREPLIFETIME(ATFICharacter, Health);
+	DOREPLIFETIME(ATFICharacter, Shield);
 }
 
 void ATFICharacter::PostInitializeComponents()
@@ -158,6 +171,54 @@ void ATFICharacter::PostInitializeComponents()
 	{
 		CombatComponent->Character = this;
 	}
+}
+
+void ATFICharacter::OnRep_Health(float LastHealth)
+{
+	UpdateHUDHealth();
+	if (LastHealth > Health)
+	{
+		PlayHitReactMontage();
+	}
+}
+
+void ATFICharacter::OnRep_Shield(float LastShield)
+{
+	UpdateHUDShield();
+}
+
+void ATFICharacter::UpdateHUDHealth()
+{
+	TFIPlayerController = TFIPlayerController == nullptr ? Cast<ATFIPlayerController>(Controller) : TFIPlayerController;
+	if (TFIPlayerController != nullptr)
+	{
+		TFIPlayerController->SetHUDHealth(Health, MaxHealth);
+	}
+}
+
+void ATFICharacter::UpdateHUDShield()
+{
+	TFIPlayerController = TFIPlayerController == nullptr ? Cast<ATFIPlayerController>(Controller) : TFIPlayerController;
+	if (TFIPlayerController != nullptr)
+	{
+		TFIPlayerController->SetHUDShield(Shield, MaxShield);
+	}
+}
+
+void ATFICharacter::OnElimTimerFinished()
+{
+	bElimmed = false;
+	TFIGameMode = TFIGameMode == nullptr ? GetWorld()->GetAuthGameMode<ATFIGameMode>() : TFIGameMode;
+	if (TFIGameMode != nullptr)
+	{
+		TFIGameMode->RequestRespawn(this, TFIPlayerController);
+	}
+	bDying = false;
+	bElimmed = false;
+	Health = MaxHealth;
+	Shield = MaxShield;
+	UpdateHUDHealth();
+	UpdateHUDShield();
 }
 
 AWeapon* ATFICharacter::GetHoldingWeapon()
@@ -193,6 +254,7 @@ bool ATFICharacter::IsAiming()
 
 void ATFICharacter::Move(const FInputActionValue& Value)
 {
+	if (bDying || bElimmed) return;
 	if (GetCharacterMovement() && GetCharacterMovement()->IsFalling()) return;
 	// 这里是增量的移动输入
 	FVector2D Movement = Value.Get<FVector2D>();
@@ -229,6 +291,7 @@ void ATFICharacter::Look(const FInputActionValue& Value)
 
 void ATFICharacter::Jump()
 {
+	if (bDying || bElimmed) return;
 	if (bIsCrouched)
 	{
 		UnCrouch();
@@ -274,11 +337,19 @@ void ATFICharacter::OnAimCompoleted()
 
 void ATFICharacter::OnInteract()
 {
+	if (bElimmed) return;
+	if (bDying)
+	{
+		Elim();
+		return;
+	}
+	// if (bElimmed || bDying) return;
 	ServerOnInteract();
 }
 
 void ATFICharacter::OnDashButtonPressed()
 {
+	if (bDying || bElimmed) return;
 	if (GetCharacterState() != ECharacterState::ECS_Normal) return;
 	if (bIsCrouched)
 	{
@@ -295,6 +366,7 @@ void ATFICharacter::OnDashButtonReleased()
 
 void ATFICharacter::OnCrouchButtonPressed()
 {
+	if (bDying || bElimmed) return;
 	bCrouchButtonPressed = true;
 	if ((GetCharacterMovement()->GetCurrentAcceleration().Size() > 0.f || GetCharacterMovement()->IsFalling()) && CombatComponent && GetCharacterState() == ECharacterState::ECS_Normal)
 	{
@@ -313,6 +385,7 @@ void ATFICharacter::OnCrouchButtonReleased()
 
 void ATFICharacter::OnFireButtonPressed()
 {
+	if (bDying || bElimmed) return;
 	if (CombatComponent)
 	{
 		CombatComponent->SetFiring(true);
@@ -329,6 +402,7 @@ void ATFICharacter::OnFireButtonReleased()
 
 void ATFICharacter::OnReloadButtonPressed()
 {
+	if (bDying || bElimmed) return;
 	if (CombatComponent)
 	{
 		CombatComponent->ReloadWeapon();
@@ -386,6 +460,15 @@ void ATFICharacter::PlayReloadMontage(EWeaponType PlaySession)
 	AnimInstance->Montage_JumpToSection(SessionName);
 }
 
+void ATFICharacter::PlayHitReactMontage()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance != nullptr && BulletJumpMontage != nullptr)
+	{
+		AnimInstance->Montage_Play(HitReactMontage);
+	}
+}
+
 void ATFICharacter::ServerOnInteract_Implementation()
 {
 	if (OverlappingWeapon != nullptr && CombatComponent != nullptr)
@@ -396,6 +479,7 @@ void ATFICharacter::ServerOnInteract_Implementation()
 
 void ATFICharacter::SetOverlappingWeapon(AWeapon* Weapon)
 {
+	if (bDying || bElimmed) return;
 	if (IsLocallyControlled() && OverlappingWeapon != nullptr)
 	{
 		OverlappingWeapon->ShowPickupWidget(false);
@@ -428,6 +512,7 @@ bool ATFICharacter::IsHoldingWeapon()
 
 void ATFICharacter::AimOffset(float DeltaTime)
 {
+	if (bDying || bElimmed) return;
 	if (GetCharacterMovement() == nullptr) return;
 	float Speed = CalculateSpeed();
 	bool bIsInAir = GetCharacterMovement()->IsFalling();
@@ -514,4 +599,80 @@ float ATFICharacter::CalculateSpeed()
 	FVector Velocity = GetVelocity();
 	Velocity.Z = 0.f;
 	return Velocity.Size();
+}
+
+void ATFICharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser)
+{
+	if (bDying || bElimmed) return;
+	if (Shield > 0.f)
+	{
+		Shield = FMath::Clamp(Shield - Damage, 0, MaxShield);
+	}
+	else if (Health > 0.f)
+	{
+		Health = FMath::Clamp(Health - Damage, 0, MaxHealth);
+	}
+	UpdateHUDHealth();
+	UpdateHUDShield();
+	
+	if (Health <= 0.f)
+	{
+		KnockDown();
+	}
+	
+}
+
+void ATFICharacter::Elim()
+{
+	if (bElimmed) return;
+	bDying = false;
+	bElimmed = true;
+	TFIPlayerController = TFIPlayerController == nullptr ? Cast<ATFIPlayerController>(Controller) : TFIPlayerController;
+	if (TFIPlayerController != nullptr)
+	{
+		TFIPlayerController->SetHUDRespawnNotify(ESlateVisibility::Hidden);
+	}
+	ServerElim();
+}
+
+void ATFICharacter::ServerElim_Implementation()
+{
+	MulticastElim();
+}
+
+void ATFICharacter::MulticastElim_Implementation()
+{
+	GetWorld()->GetTimerManager().SetTimer(
+		ElimTimer,
+		this,
+		&ATFICharacter::OnElimTimerFinished,
+		ElimDelay
+	);
+}
+
+void ATFICharacter::KnockDown()
+{
+	if (bDying || bElimmed) return;
+	bDying = true;
+	MulticastKnockDown();
+	if (CombatComponent && CombatComponent->HoldingWeapon != nullptr)
+	{
+		CombatComponent->DropWeapon();
+	}
+}
+
+void ATFICharacter::MulticastKnockDown_Implementation()
+{
+	bDying = true;
+	GetMesh()->SetEnableGravity(true);
+	GetMesh()->SetSimulatePhysics(true);
+	TFIPlayerController = TFIPlayerController == nullptr ? Cast<ATFIPlayerController>(Controller) : TFIPlayerController;
+	if (TFIPlayerController != nullptr)
+	{
+		TFIPlayerController->SetHUDRespawnNotify(ESlateVisibility::Visible);
+	}
+	GetCharacterMovement()->DisableMovement();
+	GetMesh()->SetSimulatePhysics(true);
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }

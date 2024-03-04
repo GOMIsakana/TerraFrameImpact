@@ -33,6 +33,8 @@ public:
 	void PlayFireMontage(bool bAiming);
 	UFUNCTION()
 	void PlayReloadMontage(EWeaponType PlaySession);
+	UFUNCTION()
+	void PlayHitReactMontage();
 
 protected:
 	// Called when the game starts or when spawned
@@ -78,17 +80,37 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "角色动画")
 	class UAnimMontage* SlideMontage;
 	UPROPERTY(EditAnywhere, Category = "角色动画")
-	class UAnimMontage* BulletJumpMontage;
+	UAnimMontage* BulletJumpMontage;
 	UPROPERTY(EditAnywhere, Category = "角色动画")
-	class UAnimMontage* FireMontage;
+	UAnimMontage* FireMontage;
 	UPROPERTY(EditAnywhere, Category = "角色动画")
-	class UAnimMontage* ReloadMontage;
+	UAnimMontage* ReloadMontage;
+	UPROPERTY(EditAnywhere, Category = "角色动画")
+	UAnimMontage* HitReactMontage;
 
 	void AimOffset(float DeltaTime);
 	void CalculateAO_Pitch(float DeltaTime);
-	float CalculateSpeed();
+	float CalculateSpeed(); 
+	
+	UFUNCTION()
+	void ReceiveDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
+
+	UFUNCTION()
+	void Elim();
+	UFUNCTION(Server, Reliable)
+	void ServerElim();
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastElim();
+
+	UFUNCTION()
+	void KnockDown();
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastKnockDown();
 
 private:	
+
+	UPROPERTY()
+	class ATFIPlayerController* TFIPlayerController;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	class USpringArmComponent* CameraBoom;
@@ -150,6 +172,39 @@ private:
 	class UTimelineComponent* SlideTimeline;
 	UTimelineComponent* BulletJumpTimeline;
 
+	/*
+	* 生命值护盾相关
+	*/
+
+	UPROPERTY(EditAnywhere, Category = "角色状态")
+	float MaxHealth = 100.f;
+	UPROPERTY(EditAnywhere, Category = "角色状态", ReplicatedUsing = OnRep_Health)
+	float Health = 100.f;
+	UPROPERTY(EditAnywhere, Category = "角色状态")
+	float MaxShield = 100.f;
+	UPROPERTY(EditAnywhere, Category = "角色状态", ReplicatedUsing = OnRep_Shield)
+	float Shield = 100.f;
+
+	UFUNCTION()
+	void OnRep_Health(float LastHealth);
+	UFUNCTION()
+	void OnRep_Shield(float LastShield);
+
+	UFUNCTION()
+	void UpdateHUDHealth();
+	UFUNCTION()
+	void UpdateHUDShield();
+
+	FTimerHandle ElimTimer;
+
+	void OnElimTimerFinished();
+	class ATFIGameMode* TFIGameMode;
+
+	bool bElimmed = false;
+	bool bDying = false;
+	UPROPERTY(EditAnywhere, Category = "角色状态")
+	float ElimDelay = 2.f;
+
 public:
 
 	FORCEINLINE float GetAO_Yaw() const { return AO_Yaw; }
@@ -169,4 +224,6 @@ public:
 	bool IsHoldingWeapon();
 	ECharacterState GetCharacterState();
 	FORCEINLINE UTFICombatComponent* GetCombatComponent() const { return CombatComponent; };
+	FORCEINLINE bool IsDying() const { return bDying; }
+	FORCEINLINE bool IsElimmed() const { return bElimmed; }
 };

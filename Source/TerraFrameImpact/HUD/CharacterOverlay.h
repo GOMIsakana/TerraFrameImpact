@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/ProgressBar.h"
 #include "CharacterOverlay.generated.h"
 
 /**
@@ -19,5 +20,18 @@ public:
 	class UTextBlock* WeaponAmmoAmount;
 
 	UPROPERTY(meta = (BindWidget))
-	class UTextBlock* CarriedAmmoAmount;
+	UTextBlock* CarriedAmmoAmount;
+
+	UPROPERTY(meta = (BindWidget))
+	UProgressBar* HealthBar;
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* HealthText;
+
+	UPROPERTY(meta = (BindWidget))
+	UProgressBar* ShieldBar;
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* ShieldText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* RespawnNotify;
 };

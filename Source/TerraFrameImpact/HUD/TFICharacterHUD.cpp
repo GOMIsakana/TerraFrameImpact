@@ -88,4 +88,3 @@ void ATFICharacterHUD::AddCharacterOverlay()
 		CharacterOverlay->AddToViewport();
 	}
 }
-
