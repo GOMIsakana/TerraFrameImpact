@@ -36,11 +36,17 @@ public:
 	UFUNCTION()
 	void PlayHitReactMontage();
 
+	UFUNCTION()
+	void Elim();
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 	virtual void Tick(float DeltaTime) override;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	class UTFICombatComponent* CombatComponent;
 
 	UFUNCTION()
 	void Move(const FInputActionValue& Value);
@@ -93,17 +99,15 @@ protected:
 	float CalculateSpeed(); 
 	
 	UFUNCTION()
-	void ReceiveDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
+	virtual void ReceiveDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
 
-	UFUNCTION()
-	void Elim();
 	UFUNCTION(Server, Reliable)
 	void ServerElim();
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastElim();
 
 	UFUNCTION()
-	void KnockDown();
+	virtual void KnockDown();
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastKnockDown();
 
@@ -117,9 +121,6 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	class UCameraComponent* FollowCamera;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	class UTFICombatComponent* CombatComponent;
 
 	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_OverlappingWeapon)
 	class AWeapon* OverlappingWeapon;
@@ -184,6 +185,17 @@ private:
 	float MaxShield = 100.f;
 	UPROPERTY(EditAnywhere, Category = "角色状态", ReplicatedUsing = OnRep_Shield)
 	float Shield = 100.f;
+	UPROPERTY(EditAnywhere, Category = "角色状态")
+	float ShieldRecoveryDelay = 5.f;
+	UPROPERTY(EditAnywhere, Category = "角色状态")
+	float ShieldRecoveryAmountPerTick = 1.f;
+	FTimerHandle ShieldRecoveryTimer;
+	UPROPERTY(Replicated = true)
+	bool bCanRecoveryShield = true;
+	UFUNCTION()
+	void OnShieldRecoveryTimerComplete();
+	UFUNCTION()
+	void RecoveryShield();
 
 	UFUNCTION()
 	void OnRep_Health(float LastHealth);

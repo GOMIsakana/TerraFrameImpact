@@ -27,4 +27,8 @@ protected:
 private:
 	UPROPERTY(EditAnywhere)
 	USoundCue* BounceSound;
+
+	UPROPERTY(EditAnywhere)
+	int32 MaxBounceTimes = 3;
+	int32 RemainBounceTimes;
 };

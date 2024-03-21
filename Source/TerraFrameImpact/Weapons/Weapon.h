@@ -28,6 +28,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void Fire(const FVector& TargetPos);
 	void SetHUDAmmo();
+	void SetHUDCarriedAmmo();
 	FVector TraceEndWithSpread(const FVector& HitTarget);
 
 	UPROPERTY(EditAnywhere, Category = "武器属性")
@@ -111,6 +112,10 @@ private:
 	void ClientUpdateAmmo(int32 ServerAmmo);
 	UFUNCTION(Client, Reliable)
 	void ClientAddAmmo(int32 AmmoToAdd);
+	UFUNCTION(Client, Reliable)
+	void ClientUpdateCarriedAmmo(int32 ServerAmmo);
+	UFUNCTION(Client, Reliable)
+	void ClientAddCarriedAmmo(int32 AmmoToAdd);
 
 public:	
 	// Called every frame
@@ -119,6 +124,7 @@ public:
 
 	void SpendRound();
 	void AddAmmo(int32 AmountToAdd);
+	void AddCarriedAmmo(int32 AmountToAdd);
 
 	FORCEINLINE bool IsEmpty() const { return Ammo <= 0; };
 	FORCEINLINE bool IsFull() const { return Ammo >= MagCapacity; };

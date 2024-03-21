@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "TerraFrameImpact/HUD/CharacterScoreBoard.h"
 #include "TFIPlayerController.generated.h"
 
 /**
@@ -23,9 +24,24 @@ public:
 
 	void SetHUDRespawnNotify(ESlateVisibility State);
 
+	void SetHUDScoreBoard(const FString& OtherPlayerName, int32 OtherPlayerIndex, int32 ElimAmount);
+	UFUNCTION(Client, Reliable)
+	void ClientSetHUDScoreBoard(const FString& OtherPlayerName, int32 OtherPlayerIndex, int32 ElimAmount);
+	UCharacterScoreBoard* AddNewScoreBoard(FString NewPlayerName, int32 NewPlayerIndex, int32 NewElimAmount);
+
+	void SetHUDMissionTarget(float CurrentProgress, float MissionTarget);
+
+	float GetServerTime();
+
 protected:
 	virtual void BeginPlay() override;
 	void PollInit();
+	void SetHUDGameTimer(float Time);
+
+	UFUNCTION(Server, Reliable)
+	void ServerRequestServerTime(float TimeOfClientRequest);
+	UFUNCTION(Client, Reliable)
+	void ClientReportServerTime(float TimeOfClientRequest, float TimeServerReceivedClientRequest);
 
 private:
 	UPROPERTY()
@@ -36,4 +52,30 @@ private:
 	bool bInitializeCarriedAmmo = false;
 	float HUDWeaponAmmo;
 	bool bInitializeWeaponAmmo = false;
+
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UCharacterScoreBoard> ScoreBoardClass;
+
+	float SingleTripTime;
+	float ClientServerDelta;
+	float TimeSyncRunningTime = 0.f;
+	float TimeSyncFrequency = 5.f;
+	float LevelStartingTime;
+	void CheckTimeSync(float DeltaTime);
+
+	TArray<FString> PollInitPlayerNameList;
+	TArray<int32> PollInitPlayerIndexList;
+
+	class ATFIGameMode* TFIGameMode;
+
+	bool bInitializeMissionTarget = true;
+
+	int32 PlayerIndex = 0;
+
+public:
+	FORCEINLINE int32 GetPlayerIndex() const { return PlayerIndex; }
+	FORCEINLINE void SetPlayerIndex(int32 Index) { PlayerIndex = Index; }
+	FORCEINLINE void SetPollInitPlayerNameList(const TArray<FString>& PlayerNameList) { PollInitPlayerNameList = PlayerNameList; }
+	FORCEINLINE void SetPollInitPlayerIndexList(const TArray<int32>& PlayerIndexList) { PollInitPlayerIndexList = PlayerIndexList; }
+
 };

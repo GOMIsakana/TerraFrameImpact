@@ -14,6 +14,7 @@
 #include "DrawDebugHelpers.h"
 #include "TerraFrameImpact/HUD/TFICharacterHUD.h"
 #include "TerraFrameImpact/PlayerController/TFIPlayerController.h"
+#include "TerraFrameImpact/AIController/TFIAIController.h"
 
 // Sets default values for this component's properties
 UTFICombatComponent::UTFICombatComponent()
@@ -64,6 +65,28 @@ void UTFICombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 		{
 			BulletJumpCompleted();
 		}
+	}
+	if (Character && !Character->IsPlayerControlled())
+	{
+		if (HoldingWeapon == nullptr) return;
+		FVector StartLocation = GetHoldingWeaponMuzzleFlash()->GetSocketLocation(HoldingWeapon->GetWeaponMesh());
+		ATFIAIController* AICharacterController = Cast<ATFIAIController>(Character->GetController());
+		if (AICharacterController == nullptr) return;
+		FVector TargetLocation = AICharacterController->GetTargetLocation() == FVector() ? AICharacterController->GetTargetLocation() : AICharacterController->GetTargetHeadLocation();
+
+		FHitResult HitResult;
+		UWorld* World = GetWorld();
+		World->LineTraceSingleByChannel(
+			HitResult,
+			StartLocation,
+			TargetLocation,
+			ECollisionChannel::ECC_Visibility
+		);
+		if (!HitResult.bBlockingHit)
+		{
+			HitResult.ImpactPoint = HitResult.TraceEnd;
+		}
+		HitTarget = HitResult.ImpactPoint;
 	}
 }
 
@@ -186,8 +209,16 @@ void UTFICombatComponent::DropWeapon()
 	HoldingWeapon->SetWeaponState(EWeaponState::EWS_Dropped);
 }
 
-void UTFICombatComponent::OnRep_HoldingWeapon()
+// 这个函数的意义就是在服务器上也执行对应的操作
+void UTFICombatComponent::OnRep_HoldingWeapon(AWeapon* LastWeapon)
 {
+	if (LastWeapon != nullptr)
+	{
+		FDetachmentTransformRules DetachRule(EDetachmentRule::KeepWorld, true);
+		LastWeapon->DetachFromActor(DetachRule);
+		LastWeapon->SetOwner(nullptr);
+		LastWeapon->SetWeaponState(EWeaponState::EWS_Dropped);
+	}
 	// 这里是“自己不是服务器”的时候会去本地执行
 	if (HoldingWeapon == nullptr || Character == nullptr) return;
 	HoldingWeapon->SetOwner(Character);
@@ -543,6 +574,7 @@ void UTFICombatComponent::UpdateAmmoValue()
 		Controller->SetHUDCarriedAmmo(CurrentCarriedAmmo);
 	}
 	HoldingWeapon->AddAmmo(ReloadAmount);
+	HoldingWeapon->AddCarriedAmmo(-ReloadAmount);
 }
 
 void UTFICombatComponent::UpdateCarriedValue()
@@ -793,7 +825,34 @@ void UTFICombatComponent::ResetBulletJumpLimit()
 	CurrentBulletJumpLimit = BulletJumpLimit;
 }
 
+bool UTFICombatComponent::PickupAmmo(EWeaponType WeaponType, int32 Amount)
+{
+	bool bCanPickupAmmo = HoldingWeapon != nullptr && 
+		CarriedAmmoMap.Contains(HoldingWeapon->GetWeaponType()) &&
+		WeaponType == HoldingWeapon->GetWeaponType() &&
+		CurrentCarriedAmmo < HoldingWeapon->GetMaxCarriedAmmo();
+	if (bCanPickupAmmo)
+	{
+		CarriedAmmoMap[HoldingWeapon->GetWeaponType()] = FMath::Clamp(CurrentCarriedAmmo + Amount, 0, HoldingWeapon->GetMaxCarriedAmmo());
+		CurrentCarriedAmmo = CarriedAmmoMap[HoldingWeapon->GetWeaponType()];
+		UpdateCarriedValue();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
 float UTFICombatComponent::GetSlideStartSpeed()
 {
 	return SlideStartSpeed;
+}
+
+const USkeletalMeshSocket* UTFICombatComponent::GetHoldingWeaponMuzzleFlash()
+{
+	if (HoldingWeapon == nullptr) return nullptr;
+
+	const USkeletalMeshSocket* MuzzleFlashSocket = HoldingWeapon->GetWeaponMesh()->GetSocketByName(FName("MuzzleFlash"));
+	return MuzzleFlashSocket;
 }

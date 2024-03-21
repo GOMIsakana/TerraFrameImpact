@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/ProgressBar.h"
+#include "Components/VerticalBox.h"
 #include "CharacterOverlay.generated.h"
 
 /**
@@ -34,4 +35,16 @@ public:
 
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* RespawnNotify;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* GameTimer;
+
+	UPROPERTY(meta = (BindWidget))
+	UVerticalBox* ScoreBoard;
+
+	UPROPERTY(meta = (BindWidget))
+	UProgressBar* MissionBar;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* MissionText;
 };

@@ -7,6 +7,7 @@
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Components/CanvasPanelSlot.h"
 #include "TerraFrameImpact/HUD/CharacterOverlay.h"
+#include "TerraFrameImpact/HUD/CharacterScoreBoard.h"
 
 void ATFICharacterHUD::DrawHUD()
 {

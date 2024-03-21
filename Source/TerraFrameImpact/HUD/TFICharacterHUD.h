@@ -30,9 +30,9 @@ class TERRAFRAMEIMPACT_API ATFICharacterHUD : public AHUD
 public:
 	virtual void DrawHUD() override;
 	void AddCharacterOverlay();
+	void AddCharacterScoreBoard();
 	UPROPERTY(VisibleAnywhere, Category = "玩家状态")
 	class UCharacterOverlay* CharacterOverlay;
-
 
 protected:
 	virtual void BeginPlay() override;
@@ -50,6 +50,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "玩家状态")
 	TSubclassOf<class UUserWidget> CharacterOverlayClass;
+
+	UPROPERTY(EditAnywhere, Category = "玩家状态")
+	TSubclassOf<class UUserWidget> CharacterScoreBoardClass;
 
 public:
 	FORCEINLINE void SetCrosshairPackage(const FCrosshairPackage& Package) { CrosshairPackage = Package; }

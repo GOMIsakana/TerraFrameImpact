@@ -66,8 +66,6 @@ void ATFICharacter::BeginPlay()
 	{
 		OnTakeAnyDamage.AddDynamic(this, &ATFICharacter::ReceiveDamage);
 	}
-	UpdateHUDHealth();
-	UpdateHUDShield();
 }
 
 void ATFICharacter::Tick(float DeltaTime)
@@ -76,6 +74,12 @@ void ATFICharacter::Tick(float DeltaTime)
 
 	AimOffset(DeltaTime);
 
+	if (bCanRecoveryShield)
+	{
+		RecoveryShield();
+	}
+	UpdateHUDHealth();
+	UpdateHUDShield();
 	/*
 	FVector Velocity = GetVelocity();
 	Velocity.Z = 0.f;
@@ -161,6 +165,7 @@ void ATFICharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME_CONDITION(ATFICharacter, OverlappingWeapon, COND_OwnerOnly);
 	DOREPLIFETIME(ATFICharacter, Health);
 	DOREPLIFETIME(ATFICharacter, Shield);
+	DOREPLIFETIME(ATFICharacter, bCanRecoveryShield);
 }
 
 void ATFICharacter::PostInitializeComponents()
@@ -171,6 +176,17 @@ void ATFICharacter::PostInitializeComponents()
 	{
 		CombatComponent->Character = this;
 	}
+}
+
+void ATFICharacter::OnShieldRecoveryTimerComplete()
+{
+	bCanRecoveryShield = true;
+}
+
+void ATFICharacter::RecoveryShield()
+{
+	if (bDying || bElimmed) return;
+	Shield = FMath::Clamp(Shield + ShieldRecoveryAmountPerTick, 0, MaxShield);
 }
 
 void ATFICharacter::OnRep_Health(float LastHealth)
@@ -209,7 +225,8 @@ void ATFICharacter::OnElimTimerFinished()
 {
 	bElimmed = false;
 	TFIGameMode = TFIGameMode == nullptr ? GetWorld()->GetAuthGameMode<ATFIGameMode>() : TFIGameMode;
-	if (TFIGameMode != nullptr)
+	TFIPlayerController = TFIPlayerController == nullptr ? Cast<ATFIPlayerController>(Controller) : TFIPlayerController;
+	if (TFIGameMode != nullptr && TFIPlayerController != nullptr)
 	{
 		TFIGameMode->RequestRespawn(this, TFIPlayerController);
 	}
@@ -255,7 +272,6 @@ bool ATFICharacter::IsAiming()
 void ATFICharacter::Move(const FInputActionValue& Value)
 {
 	if (bDying || bElimmed) return;
-	if (GetCharacterMovement() && GetCharacterMovement()->IsFalling()) return;
 	// 这里是增量的移动输入
 	FVector2D Movement = Value.Get<FVector2D>();
 
@@ -614,6 +630,19 @@ void ATFICharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDam
 	}
 	UpdateHUDHealth();
 	UpdateHUDShield();
+	bCanRecoveryShield = false;
+
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		World->GetTimerManager().ClearTimer(ShieldRecoveryTimer);
+		World->GetTimerManager().SetTimer(
+			ShieldRecoveryTimer,
+			this,
+			&ATFICharacter::OnShieldRecoveryTimerComplete,
+			ShieldRecoveryDelay
+		);
+	}
 	
 	if (Health <= 0.f)
 	{
@@ -631,6 +660,10 @@ void ATFICharacter::Elim()
 	if (TFIPlayerController != nullptr)
 	{
 		TFIPlayerController->SetHUDRespawnNotify(ESlateVisibility::Hidden);
+	}
+	if (CombatComponent && CombatComponent->HoldingWeapon != nullptr)
+	{
+		CombatComponent->DropWeapon();
 	}
 	ServerElim();
 }
@@ -655,10 +688,6 @@ void ATFICharacter::KnockDown()
 	if (bDying || bElimmed) return;
 	bDying = true;
 	MulticastKnockDown();
-	if (CombatComponent && CombatComponent->HoldingWeapon != nullptr)
-	{
-		CombatComponent->DropWeapon();
-	}
 }
 
 void ATFICharacter::MulticastKnockDown_Implementation()

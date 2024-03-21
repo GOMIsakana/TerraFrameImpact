@@ -30,6 +30,14 @@ public:
 	void SetDashButtonPressed(bool state);
 	void ReduceBulletJumpLimit(int32 ReduceAmount);
 	void ResetBulletJumpLimit();
+	// 成功时返回true, 失败时返回false
+	bool PickupAmmo(EWeaponType WeaponType, int32 Amount);
+
+	UFUNCTION()
+	void EquipWeapon(AWeapon* TargetWeapon);
+
+	UFUNCTION()
+	void DropWeapon();
 
 protected:
 	// Called when the game starts
@@ -59,13 +67,7 @@ private:
 	bool bIsReloading = false;
 
 	UFUNCTION()
-	void EquipWeapon(AWeapon* TargetWeapon);
-
-	UFUNCTION()
-	void DropWeapon();
-
-	UFUNCTION()
-	void OnRep_HoldingWeapon();
+	void OnRep_HoldingWeapon(AWeapon* LastWeapon);
 
 	UFUNCTION(Server, Reliable)
 	void ServerStartDash();
@@ -202,4 +204,7 @@ private:
 public:	
 	UFUNCTION(BlueprintCallable)
 	float GetSlideStartSpeed();
+	FORCEINLINE void SetHitTarget(FVector OtherHitTarget) { HitTarget = OtherHitTarget; }
+	FORCEINLINE AWeapon* GetHoldingWeapon() const { return HoldingWeapon; }
+	const USkeletalMeshSocket* GetHoldingWeaponMuzzleFlash();
 };

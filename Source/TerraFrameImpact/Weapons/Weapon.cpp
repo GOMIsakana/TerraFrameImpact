@@ -139,7 +139,7 @@ void AWeapon::OnHasOwner()
 void AWeapon::OnDropped()
 {
 	// 设置主人的操作在战斗类里面实现
-	Sphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	Sphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	Sphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
 	WeaponMesh->SetSimulatePhysics(true);
 	WeaponMesh->SetEnableGravity(true);
@@ -160,6 +160,22 @@ void AWeapon::ClientAddAmmo_Implementation(int32 AmmoToAdd)
 	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
 	ATFICharacter* Character = Cast<ATFICharacter>(GetOwner());
 	SetHUDAmmo();
+}
+
+void AWeapon::ClientUpdateCarriedAmmo_Implementation(int32 ServerAmmo)
+{
+	if (GetLocalRole() == ENetRole::ROLE_Authority) return;
+	CarriedAmmo = ServerAmmo;
+	SetHUDCarriedAmmo();
+}
+
+void AWeapon::ClientAddCarriedAmmo_Implementation(int32 AmmoToAdd)
+{
+	if (GetLocalRole() == ENetRole::ROLE_Authority) return;
+
+	CarriedAmmo = FMath::Clamp(CarriedAmmo + AmmoToAdd, 0, MagCapacity);
+	ATFICharacter* Character = Cast<ATFICharacter>(GetOwner());
+	SetHUDCarriedAmmo();
 }
 
 // Called every frame
@@ -187,6 +203,19 @@ void AWeapon::SetHUDAmmo()
 		if (Controller)
 		{
 			Controller->SetHUDWeaponAmmo(Ammo);
+		}
+	}
+}
+
+void AWeapon::SetHUDCarriedAmmo()
+{
+	ATFICharacter* Character = Cast<ATFICharacter>(GetOwner());
+	if (Character)
+	{
+		ATFIPlayerController* Controller = Cast<ATFIPlayerController>(Character->Controller);
+		if (Controller)
+		{
+			Controller->SetHUDCarriedAmmo(CarriedAmmo);
 		}
 	}
 }
@@ -232,4 +261,11 @@ void AWeapon::AddAmmo(int32 AmountToAdd)
 	Ammo = FMath::Clamp(Ammo + AmountToAdd, 0, MagCapacity);
 	SetHUDAmmo();
 	ClientAddAmmo(AmountToAdd);
+}
+
+void AWeapon::AddCarriedAmmo(int32 AmountToAdd)
+{
+	CarriedAmmo = FMath::Clamp(CarriedAmmo + AmountToAdd, 0, MaxCarriedAmmo);
+	SetHUDAmmo();
+	ClientAddCarriedAmmo(AmountToAdd);
 }

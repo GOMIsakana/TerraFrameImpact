@@ -32,10 +32,17 @@ void AGrenadeProjectile::BeginPlay()
 	StartDestroyTimer();
 
 	ProjectileMovementComponent->OnProjectileBounce.AddDynamic(this, &AGrenadeProjectile::OnBounce);
+	RemainBounceTimes = MaxBounceTimes;
 }
 
 void AGrenadeProjectile::OnBounce(const FHitResult& ImpactResult, const FVector& ImpactVelocity)
 {
+	if (RemainBounceTimes == 0)
+	{
+		Destroy();
+		return;
+	}
+	RemainBounceTimes -= 1;
 	if (BounceSound)
 	{
 		UGameplayStatics::PlaySoundAtLocation(
