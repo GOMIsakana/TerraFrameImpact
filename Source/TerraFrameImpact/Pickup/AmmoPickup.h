@@ -23,5 +23,8 @@ private:
 	EWeaponType WeaponType = EWeaponType::EWT_AssultRifle;
 
 	UPROPERTY(EditAnywhere)
+	FString ItemName = TEXT("子弹");
+
+	UPROPERTY(EditAnywhere)
 	int32 AmmoAmount = 30;
 };

@@ -56,8 +56,6 @@ void AEnemySpawn::OnSpawnTimerFinished()
 	ATFIGameState* GameState = GameMode->GetGameState<ATFIGameState>();
 	if (GameState == nullptr) return;
 
-	UE_LOG(LogTemp, Warning, TEXT("Current Enemy Amount: %d"), GameState->GetEnemyAmount());
-
 	FActorSpawnParameters SpawnParmeters;
 	SpawnParmeters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 	const FTransform SpawnTransform = GetActorTransform();
@@ -75,6 +73,11 @@ void AEnemySpawn::OnSpawnTimerFinished()
 			UE_LOG(LogTemp, Warning, TEXT("敌人生成错误"))
 			return;
 		}
+	}
+	TotalSpawnTimes--;
+	if (TotalSpawnTimes == 0)
+	{
+		StopSpawn();
 	}
 }
 

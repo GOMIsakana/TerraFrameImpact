@@ -22,6 +22,29 @@ void ATFIPlayerController::Tick(float DeltaTime)
 	PollInit();
 }
 
+void ATFIPlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+
+	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
+	if (TFICharacterHUD != nullptr)
+	{
+		TFICharacterHUD->AddCharacterOverlay();
+	}
+	SetHUDRespawnNotify(ESlateVisibility::Hidden);
+
+	TFIGameMode = TFIGameMode == nullptr ? Cast<ATFIGameMode>(UGameplayStatics::GetGameMode(GetWorld())) : TFIGameMode;
+	if (TFIGameMode != nullptr)
+	{
+		LevelStartingTime = TFIGameMode->LevelStartingTime;
+
+		if (HasAuthority())
+		{
+			TFIGameMode->AddToOnlinePlayers(this);
+		}
+	}
+}
+
 void ATFIPlayerController::SetHUDWeaponAmmo(int32 Ammo)
 {
 	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
@@ -132,6 +155,55 @@ UCharacterScoreBoard* ATFIPlayerController::AddNewScoreBoard(FString NewPlayerNa
 	return nullptr;
 }
 
+void ATFIPlayerController::AddNewPickupNotify(FString ItemName, int32 ItemAmount)
+{
+	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
+	bool bHUDValid = TFICharacterHUD &&
+		TFICharacterHUD->CharacterOverlay &&
+		TFICharacterHUD->CharacterOverlay->PickupBoard &&
+		PickupNotifyClass;
+	if (bHUDValid)
+	{
+		UPickupNotify* NewPickupNotify = CreateWidget<UPickupNotify>(this, PickupNotifyClass);
+		if (NewPickupNotify != nullptr)
+		{
+			if (NewPickupNotify->ItemName && NewPickupNotify->ItemAmount)
+			{
+				NewPickupNotify->ItemName->SetText(FText::FromString(ItemName));
+				FString AmountText = FString::Printf(TEXT(" + %d"), ItemAmount);
+				NewPickupNotify->ItemAmount->SetText(FText::FromString(AmountText));
+			}
+			TFICharacterHUD->CharacterOverlay->PickupBoard->AddChild(NewPickupNotify);
+			NewPickupNotify->PlayAppearAnim();
+		}
+	}
+	ClientAddNewPickupNotify(ItemName, ItemAmount);
+}
+
+void ATFIPlayerController::ClientAddNewPickupNotify_Implementation(const FString& ItemName, int32 ItemAmount)
+{
+	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
+	bool bHUDValid = TFICharacterHUD &&
+		TFICharacterHUD->CharacterOverlay &&
+		TFICharacterHUD->CharacterOverlay->PickupBoard &&
+		PickupNotifyClass;
+	if (bHUDValid)
+	{
+		UPickupNotify* NewPickupNotify = CreateWidget<UPickupNotify>(this, PickupNotifyClass);
+		if (NewPickupNotify != nullptr)
+		{
+			if (NewPickupNotify->ItemName && NewPickupNotify->ItemAmount)
+			{
+				NewPickupNotify->ItemName->SetText(FText::FromString(ItemName));
+				FString AmountText = FString::Printf(TEXT(" + %d"), ItemAmount);
+				NewPickupNotify->ItemAmount->SetText(FText::FromString(AmountText));
+			}
+			TFICharacterHUD->CharacterOverlay->PickupBoard->AddChild(NewPickupNotify);
+			NewPickupNotify->PlayAppearAnim();
+		}
+	}
+}
+
 void ATFIPlayerController::SetHUDMissionTarget(float CurrentProgress, float MissionTarget)
 {
 	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
@@ -186,29 +258,6 @@ float ATFIPlayerController::GetServerTime()
 	else
 	{
 		return GetWorld()->GetTimeSeconds() + ClientServerDelta;
-	}
-}
-
-void ATFIPlayerController::BeginPlay()
-{
-	Super::BeginPlay();
-
-	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
-	if (TFICharacterHUD != nullptr)
-	{
-		TFICharacterHUD->AddCharacterOverlay();
-	}
-	SetHUDRespawnNotify(ESlateVisibility::Hidden);
-
-	TFIGameMode = TFIGameMode == nullptr ? Cast<ATFIGameMode>(UGameplayStatics::GetGameMode(GetWorld())) : TFIGameMode;
-	if (TFIGameMode != nullptr)
-	{
-		LevelStartingTime = TFIGameMode->LevelStartingTime;
-
-		if (HasAuthority())
-		{
-			TFIGameMode->AddToOnlinePlayers(this);
-		}
 	}
 }
 

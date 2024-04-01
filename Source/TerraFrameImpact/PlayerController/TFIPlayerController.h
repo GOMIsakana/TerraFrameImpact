@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "TerraFrameImpact/HUD/CharacterScoreBoard.h"
+#include "TerraFrameImpact/HUD/PickupNotify.h"
 #include "TFIPlayerController.generated.h"
 
 /**
@@ -28,6 +29,10 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientSetHUDScoreBoard(const FString& OtherPlayerName, int32 OtherPlayerIndex, int32 ElimAmount);
 	UCharacterScoreBoard* AddNewScoreBoard(FString NewPlayerName, int32 NewPlayerIndex, int32 NewElimAmount);
+
+	void AddNewPickupNotify(FString ItemName, int32 ItemAmount);
+	UFUNCTION(Client, Reliable)
+	void ClientAddNewPickupNotify(const FString& ItemName, int32 ItemAmount);
 
 	void SetHUDMissionTarget(float CurrentProgress, float MissionTarget);
 
@@ -55,6 +60,8 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UCharacterScoreBoard> ScoreBoardClass;
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UPickupNotify> PickupNotifyClass;
 
 	float SingleTripTime;
 	float ClientServerDelta;

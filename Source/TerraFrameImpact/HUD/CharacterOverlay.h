@@ -43,6 +43,9 @@ public:
 	UVerticalBox* ScoreBoard;
 
 	UPROPERTY(meta = (BindWidget))
+	UVerticalBox* PickupBoard;
+
+	UPROPERTY(meta = (BindWidget))
 	UProgressBar* MissionBar;
 
 	UPROPERTY(meta = (BindWidget))

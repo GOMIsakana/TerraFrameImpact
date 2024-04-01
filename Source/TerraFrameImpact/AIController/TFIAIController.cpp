@@ -50,9 +50,24 @@ void ATFIAIController::ExecuteAI()
 	UGameplayStatics::GetAllActorsOfClass(this, ATFICharacter::StaticClass(), PlayerCharacterArray);
 	if (CurrentTarget != nullptr && !LineOfSightTo(CurrentTarget))
 	{
-		CurrentTarget = nullptr;
+		GetBlackboardComponent()->SetValueAsVector(TEXT("LastTargetLocation"), LastTargetLocation);
 		GetBlackboardComponent()->ClearValue(TEXT("TargetPlayer"));
+		CurrentTarget = nullptr;
 		// MoveToLocation(TargetLocation, 50.f);
+	}
+
+	FVector SelfLocation = Character->GetActorLocation();
+	FVector GettingLastTargetLocation = FVector();
+	if (GetBlackboardComponent()->IsVectorValueSet(TEXT("LastTargetLocation")))
+	{
+		GettingLastTargetLocation = GetBlackboardComponent()->GetValueAsVector(TEXT("LastTargetLocation"));
+	}
+	SelfLocation.Z = 0.f;
+	GettingLastTargetLocation.Z = 0.f;
+
+	if (FMath::Abs(SelfLocation.Size() - GettingLastTargetLocation.Size()) < 100.f || CurrentTarget != nullptr && LineOfSightTo(CurrentTarget))
+	{
+		GetBlackboardComponent()->ClearValue(TEXT("LastTargetLocation"));
 	}
 
 	if (CurrentTarget == nullptr || CurrentTarget->IsDying() || CurrentTarget->IsElimmed())
@@ -79,8 +94,6 @@ void ATFIAIController::ExecuteAI()
 		}
 	}
 
-	Character = Character == nullptr ? Cast<ATFIAICharacter>(GetCharacter()) : Character;
-	if (Character == nullptr) return;
 	FVector CurrentLocation = Character->GetActorLocation();
 	if (CurrentTarget != nullptr)
 	{
@@ -98,6 +111,7 @@ void ATFIAIController::ExecuteAI()
 	}
 
 	GetBlackboardComponent()->SetValueAsVector(TEXT("TargetLocation"), CurrentTargetLocation);
+	LastTargetLocation = CurrentTargetLocation;
 
 	if (Character->IsDying() || Character->IsElimmed())
 	{
@@ -131,6 +145,7 @@ void ATFIAIController::StopExecuteAI()
 void ATFIAIController::Destroyed()
 {
 	Super::Destroyed();
+
 
 	StopExecuteAI();
 	GetBlackboardComponent()->ClearValue(TEXT("TargetPlayer"));

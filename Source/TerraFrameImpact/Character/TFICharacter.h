@@ -6,10 +6,12 @@
 #include "GameFramework/Character.h"
 #include "TerraFrameImpact/Enums/CharacterState.h"
 #include "TerraFrameImpact/Enums/WeaponType.h"
+#include "TerraFrameImpact/InteractActor/InteractActor.h"
+#include "TerraFrameImpact/Interfaces/InteractWithCrosshairsInterface.h"
 #include "TFICharacter.generated.h"
 
 UCLASS()
-class TERRAFRAMEIMPACT_API ATFICharacter : public ACharacter
+class TERRAFRAMEIMPACT_API ATFICharacter : public ACharacter, public IInteractWithCrosshairsInterface
 {
 	GENERATED_BODY()
 
@@ -21,6 +23,8 @@ public:
 
 	UFUNCTION()
 	void SetOverlappingWeapon(AWeapon* Weapon);
+	UFUNCTION()
+	void SetOverlappingInteractActor(AInteractActor* InteractActor);
 
 	virtual void Jump() override;
 	virtual void StopJumping() override;
@@ -38,6 +42,10 @@ public:
 
 	UFUNCTION()
 	void Elim();
+
+	virtual void InteractWithCorsshairs() override;
+	UFUNCTION()
+	void SetHealthBarDisplay(bool bDisplay);
 
 protected:
 	// Called when the game starts or when spawned
@@ -122,11 +130,18 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	class UCameraComponent* FollowCamera;
 
+	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
+	class UWidgetComponent* HealthBarWidget;
+
 	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_OverlappingWeapon)
 	class AWeapon* OverlappingWeapon;
-
 	UFUNCTION()
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
+
+	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_OverlappingInteractActor)
+	class AInteractActor* OverlappingInteractActor;
+	UFUNCTION()
+	void OnRep_OverlappingInteractActor(AInteractActor* LastInteractActor);
 
 	/**
 	* 增强输入
@@ -216,6 +231,11 @@ private:
 	bool bDying = false;
 	UPROPERTY(EditAnywhere, Category = "角色状态")
 	float ElimDelay = 2.f;
+
+	FTimerHandle HealthBarDisplayTimer;
+	void OnHealthBarDisplayTimerFinished();
+	UPROPERTY(EditAnywhere, Category = "角色状态")
+	float HealthBarInvisibilityDelay = 5.f;
 
 public:
 

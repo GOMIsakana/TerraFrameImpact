@@ -85,13 +85,17 @@ void AHitScanWeapon::WeaponTraceHit(const FVector& TraceStart, const FVector& Hi
 
 	if (World)
 	{
+		FCollisionQueryParams Params;
+		Params.AddIgnoredActor(GetOwner());
+
 		FVector End = TraceStart + (HitTarget - TraceStart) * 1.25f;
 
 		World->LineTraceSingleByChannel(
 			OutHit,
 			TraceStart,
 			End,
-			ECollisionChannel::ECC_Visibility
+			ECollisionChannel::ECC_Visibility,
+			Params
 		);
 		FVector BeamEnd = End;
 		if (OutHit.bBlockingHit)

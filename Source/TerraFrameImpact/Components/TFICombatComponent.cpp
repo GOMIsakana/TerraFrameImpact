@@ -66,6 +66,7 @@ void UTFICombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 			BulletJumpCompleted();
 		}
 	}
+
 	if (Character && !Character->IsPlayerControlled())
 	{
 		if (HoldingWeapon == nullptr) return;
@@ -235,7 +236,7 @@ void UTFICombatComponent::OnRep_HoldingWeapon(AWeapon* LastWeapon)
 
 void UTFICombatComponent::Dash(bool state)
 {
-	if (bIsAiming || bPreparingBattle) return;
+	if (bIsAiming) return;
 	bIsDashing = state;
 	// 本地不设的话会导致鬼畜
 	if (state)
@@ -246,6 +247,10 @@ void UTFICombatComponent::Dash(bool state)
 		if (Character->GetNetConnection() != nullptr)
 		{
 			ServerStartDash();
+		}
+		if (bPreparingBattle)
+		{
+			ClearPreparingBattleTimer();
 		}
 	}
 	else
@@ -294,20 +299,31 @@ void UTFICombatComponent::TraceUnderCrossHair(FHitResult& HitResult)
 	if (bScreenToWorld)
 	{
 		FVector TraceStart = ScreenWorldPosition;
+		FCollisionQueryParams Params;
 		if (Character)
 		{
 			float ScreenToCharacterDistance = (Character->GetActorLocation() - TraceStart).Size();
 			TraceStart += ScreenWorldDirection * (ScreenToCharacterDistance + 100.f);
+			Params.AddIgnoredActor(Character);
 		}
 
 		FVector TraceEnd = TraceStart + ScreenWorldDirection * 80000.f;
-
 		GetWorld()->LineTraceSingleByChannel(
 			HitResult,
 			TraceStart,
 			TraceEnd,
-			ECollisionChannel::ECC_Visibility
+			ECollisionChannel::ECC_Visibility,
+			Params
 		);
+
+		if (HitResult.GetActor())
+		{
+			IInteractWithCrosshairsInterface* InteractActor = Cast<IInteractWithCrosshairsInterface>(HitResult.GetActor());
+			if (InteractActor)
+			{
+				InteractActor->InteractWithCorsshairs();
+			}
+		}
 	}
 }
 
@@ -388,11 +404,6 @@ void UTFICombatComponent::FireShotgunWeapon()
 void UTFICombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TargetPos)
 {
 	MulticastFire_Implementation(TargetPos);
-	/*
-	if (Character == nullptr) return;
-	FRotator CharacterRotation(0.f, Character->GetBaseAimRotation().Yaw, 0.f);
-	Character->SetActorRotation(CharacterRotation);
-	*/
 }
 
 void UTFICombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TargetPos)
@@ -737,7 +748,7 @@ void UTFICombatComponent::OnRep_CharacterState()
 bool UTFICombatComponent::CanFire()
 {
 	if (HoldingWeapon == nullptr) return false;
-	return !HoldingWeapon->IsEmpty() && bCanFire && CharacterState == ECharacterState::ECS_Normal && !Character->GetCharacterMovement()->IsFalling();
+	return !HoldingWeapon->IsEmpty() && bCanFire && CharacterState == ECharacterState::ECS_Normal && Character && !Character->GetCharacterMovement()->IsFalling() && !(Character->IsDying() || Character->IsElimmed());
 }
 
 void UTFICombatComponent::BulletJumpCompleted()

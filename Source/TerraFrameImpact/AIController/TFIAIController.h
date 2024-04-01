@@ -45,6 +45,7 @@ private:
 
 	TArray<AActor*> PlayerCharacterArray;
 	FVector CurrentTargetLocation;
+	FVector LastTargetLocation;
 
 	class ATFIAICharacter* Character;
 

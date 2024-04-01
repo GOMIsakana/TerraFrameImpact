@@ -20,6 +20,7 @@
 #include "TerraFrameImpact/Enums/WeaponType.h"
 #include "TerraFrameImpact/PlayerController/TFIPlayerController.h"
 #include "TerraFrameImpact/GameMode/TFIGameMode.h"
+#include "TerraFrameImpact/HUD/OverHeadHealthBar.h"
 
 ATFICharacter::ATFICharacter()
 {
@@ -44,6 +45,9 @@ ATFICharacter::ATFICharacter()
 	GetMesh()->SetCollisionObjectType(ECC_SkeletalMesh);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
+
+	HealthBarWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("头顶血条"));
+	HealthBarWidget->SetupAttachment(RootComponent);
 
 	SlideTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("滑行时间轴"));
 	BulletJumpTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("子弹跳时间轴"));
@@ -163,6 +167,7 @@ void ATFICharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 
 	// 条件为OwnerOnly时，只会对本地的客户端进行网络复制，不会影响到服务器（不太懂，总之这样写吧）
 	DOREPLIFETIME_CONDITION(ATFICharacter, OverlappingWeapon, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ATFICharacter, OverlappingInteractActor, COND_OwnerOnly);
 	DOREPLIFETIME(ATFICharacter, Health);
 	DOREPLIFETIME(ATFICharacter, Shield);
 	DOREPLIFETIME(ATFICharacter, bCanRecoveryShield);
@@ -210,6 +215,16 @@ void ATFICharacter::UpdateHUDHealth()
 	{
 		TFIPlayerController->SetHUDHealth(Health, MaxHealth);
 	}
+	if (HealthBarWidget)
+	{
+		UOverHeadHealthBar* OverHeadHealthBar = Cast<UOverHeadHealthBar>(HealthBarWidget->GetWidget());
+		bool bHUDValid = OverHeadHealthBar != nullptr &&
+			OverHeadHealthBar->HealthBar;
+		if (bHUDValid)
+		{
+			OverHeadHealthBar->HealthBar->SetPercent(Health / MaxHealth);
+		}
+	}
 }
 
 void ATFICharacter::UpdateHUDShield()
@@ -218,6 +233,16 @@ void ATFICharacter::UpdateHUDShield()
 	if (TFIPlayerController != nullptr)
 	{
 		TFIPlayerController->SetHUDShield(Shield, MaxShield);
+	}
+	if (HealthBarWidget)
+	{
+		UOverHeadHealthBar* OverHeadHealthBar = Cast<UOverHeadHealthBar>(HealthBarWidget->GetWidget());
+		bool bHUDValid = OverHeadHealthBar != nullptr &&
+			OverHeadHealthBar->ShieldBar;
+		if (bHUDValid)
+		{
+			OverHeadHealthBar->ShieldBar->SetPercent(Shield / MaxShield);
+		}
 	}
 }
 
@@ -491,6 +516,10 @@ void ATFICharacter::ServerOnInteract_Implementation()
 	{
 		CombatComponent->EquipWeapon(OverlappingWeapon);
 	}
+	if (OverlappingInteractActor != nullptr)
+	{
+		OverlappingInteractActor->ServerInteract();
+	}
 }
 
 void ATFICharacter::SetOverlappingWeapon(AWeapon* Weapon)
@@ -509,6 +538,22 @@ void ATFICharacter::SetOverlappingWeapon(AWeapon* Weapon)
 	}
 }
 
+void ATFICharacter::SetOverlappingInteractActor(AInteractActor* InteractActor)
+{
+	if (bDying || bElimmed) return;
+	if (IsLocallyControlled() && OverlappingInteractActor != nullptr)
+	{
+		OverlappingInteractActor->ShowInteractWidget(false);
+	}
+	// 这里的改变会调用OnRep函数，这个函数会仅在非服务器的客户端的本地上执行（就是 只有触发这个函数的客户端会去执行，服务端和其他客户端不会执行）
+	OverlappingInteractActor = InteractActor;
+	// 自身是某一个客户端，或者服务器本人才会将字显形（显形给自己，如果需要全部人显形需要用Server分发）（避免其他人触发重叠时让它的字显形）
+	if (IsLocallyControlled() && OverlappingInteractActor != nullptr)
+	{
+		InteractActor->ShowInteractWidget(true);
+	}
+}
+
 void ATFICharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 {
 	if (OverlappingWeapon != nullptr)
@@ -518,6 +563,18 @@ void ATFICharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 	if (LastWeapon != nullptr)
 	{
 		LastWeapon->ShowPickupWidget(false);
+	}
+}
+
+void ATFICharacter::OnRep_OverlappingInteractActor(AInteractActor* LastInteractActor)
+{
+	if (OverlappingInteractActor != nullptr)
+	{
+		OverlappingInteractActor->ShowInteractWidget(true);
+	}
+	if (LastInteractActor != nullptr)
+	{
+		LastInteractActor->ShowInteractWidget(false);
 	}
 }
 
@@ -654,6 +711,7 @@ void ATFICharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDam
 void ATFICharacter::Elim()
 {
 	if (bElimmed) return;
+	SetHealthBarDisplay(false);
 	bDying = false;
 	bElimmed = true;
 	TFIPlayerController = TFIPlayerController == nullptr ? Cast<ATFIPlayerController>(Controller) : TFIPlayerController;
@@ -661,11 +719,38 @@ void ATFICharacter::Elim()
 	{
 		TFIPlayerController->SetHUDRespawnNotify(ESlateVisibility::Hidden);
 	}
-	if (CombatComponent && CombatComponent->HoldingWeapon != nullptr)
-	{
-		CombatComponent->DropWeapon();
-	}
 	ServerElim();
+}
+
+void ATFICharacter::InteractWithCorsshairs()
+{
+	SetHealthBarDisplay(true);
+}
+
+void ATFICharacter::SetHealthBarDisplay(bool bDisplay)
+{
+	if (HealthBarWidget && !(bDying || bElimmed))
+	{
+		HealthBarWidget->SetVisibility(bDisplay);
+		if (bDisplay)
+		{
+			GetWorld()->GetTimerManager().ClearTimer(HealthBarDisplayTimer);
+			GetWorld()->GetTimerManager().SetTimer(
+				HealthBarDisplayTimer,
+				this,
+				&ATFICharacter::OnHealthBarDisplayTimerFinished,
+				HealthBarInvisibilityDelay
+			);
+		}
+	}
+}
+
+void ATFICharacter::OnHealthBarDisplayTimerFinished()
+{
+	if (HealthBarWidget)
+	{
+		HealthBarWidget->SetVisibility(false);
+	}
 }
 
 void ATFICharacter::ServerElim_Implementation()
@@ -686,12 +771,17 @@ void ATFICharacter::MulticastElim_Implementation()
 void ATFICharacter::KnockDown()
 {
 	if (bDying || bElimmed) return;
+	SetHealthBarDisplay(false);
 	bDying = true;
 	MulticastKnockDown();
 }
 
 void ATFICharacter::MulticastKnockDown_Implementation()
 {
+	if (CombatComponent && CombatComponent->HoldingWeapon != nullptr)
+	{
+		CombatComponent->DropWeapon();
+	}
 	bDying = true;
 	GetMesh()->SetEnableGravity(true);
 	GetMesh()->SetSimulatePhysics(true);

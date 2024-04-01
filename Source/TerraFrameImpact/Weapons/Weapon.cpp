@@ -80,7 +80,7 @@ void AWeapon::OnSphereStartOverlap(UPrimitiveComponent* OverlappedComponent, AAc
 {
 	// 联系到玩家类, 让它去显示这个HUD，并加入到这个玩家的拾取对象中
 	ATFICharacter* Character = Cast<ATFICharacter>(OtherActor);
-	if (Character == nullptr) return;
+	if (Character == nullptr || !Character->IsPlayerControlled()) return;
 	Character->SetOverlappingWeapon(this);
 }
 
@@ -88,7 +88,7 @@ void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 {
 	// 联系到玩家类, 让它去不显示这个HUD，并从这个玩家的拾取对象中移除
 	ATFICharacter* Character = Cast<ATFICharacter>(OtherActor);
-	if (Character == nullptr) return;
+	if (Character == nullptr || !Character->IsPlayerControlled()) return;
 	Character->SetOverlappingWeapon(nullptr);	// 角色那边收到nullptr会自动取消重叠
 }
 

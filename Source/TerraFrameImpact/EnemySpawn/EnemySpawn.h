@@ -29,11 +29,13 @@ protected:
 private:
 	FTimerHandle SpawnTimer;
 	UPROPERTY(EditAnywhere, Category = "敌人生成")
-	float SpawnDelay;
+	float SpawnDelay = 5.f;
 	UPROPERTY(EditAnywhere, Category = "敌人生成")
 	bool bSpawnAtFirstTick;
 	UPROPERTY(EditAnywhere, Category = "敌人生成")
 	int32 SpawnAmountOneTime = 1;
+	UPROPERTY(EditAnywhere, Category = "敌人生成")
+	int32 TotalSpawnTimes = -1;
 	UPROPERTY(EditAnywhere, Category = "敌人生成")
 	TSubclassOf<ATFIAICharacter> EnemyClass;
 
