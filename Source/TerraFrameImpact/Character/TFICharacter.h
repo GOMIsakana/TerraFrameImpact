@@ -45,7 +45,9 @@ public:
 
 	virtual void InteractWithCorsshairs() override;
 	UFUNCTION()
-	void SetHealthBarDisplay(bool bDisplay);
+	void SetHealthBarDisplay(bool bDisplay); 
+	UFUNCTION(Server, Reliable)
+	void ServerLeaveGame();
 
 protected:
 	// Called when the game starts or when spawned
@@ -90,6 +92,9 @@ protected:
 
 	UFUNCTION()
 	void OnReloadButtonPressed();
+
+	UFUNCTION()
+	void OnMenuButtonPressed();
 
 	UPROPERTY(EditAnywhere, Category = "角色动画")
 	class UAnimMontage* SlideMontage;
@@ -166,6 +171,8 @@ private:
 	UInputAction* FireAction;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "EnhancedInput", meta = (AllowPrivateAccess = "true"))
 	UInputAction* ReloadAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "EnhancedInput", meta = (AllowPrivateAccess = "true"))
+	UInputAction* MenuAction;
 
 	/**
 	* 瞄准偏移（给动画用的）
@@ -181,6 +188,9 @@ private:
 	bool bAO_PitchOutofRange = false;
 
 	bool bShouldRotateRootBone = false;
+
+	UFUNCTION(Server, Reliable)
+	void ServerSetMovementMode(bool UseControllerRotationYaw, bool OrientRotationToMovement);
 
 	UPROPERTY(VisibleAnywhere)
 	bool bCrouchButtonPressed = false;
@@ -237,6 +247,7 @@ private:
 	UPROPERTY(EditAnywhere, Category = "角色状态")
 	float HealthBarInvisibilityDelay = 5.f;
 
+	void UpdateMinimapTranslation();
 public:
 
 	FORCEINLINE float GetAO_Yaw() const { return AO_Yaw; }

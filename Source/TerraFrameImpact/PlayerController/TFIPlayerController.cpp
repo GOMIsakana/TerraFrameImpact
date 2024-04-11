@@ -12,6 +12,7 @@
 #include "TerraFrameImpact/GameState/TFIGameState.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "TerraFrameImpact/HUD/QuickMenuWidget.h"
 
 void ATFIPlayerController::Tick(float DeltaTime)
 {
@@ -22,6 +23,34 @@ void ATFIPlayerController::Tick(float DeltaTime)
 	PollInit();
 }
 
+void ATFIPlayerController::SwitchHUDMenu()
+{
+	bCallingMenu ? TearHUDMenu() : CallHUDMenu();
+	bCallingMenu ^= true;
+}
+
+void ATFIPlayerController::CallHUDMenu()
+{
+	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
+	bool bHUDValid = TFICharacterHUD &&
+		TFICharacterHUD->QuickMenu;
+	if (bHUDValid)
+	{
+		TFICharacterHUD->QuickMenu->CallMenu();
+	}
+}
+
+void ATFIPlayerController::TearHUDMenu()
+{
+	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
+	bool bHUDValid = TFICharacterHUD &&
+		TFICharacterHUD->QuickMenu;
+	if (bHUDValid)
+	{
+		TFICharacterHUD->QuickMenu->TearMenu();
+	}
+}
+
 void ATFIPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
@@ -30,6 +59,7 @@ void ATFIPlayerController::BeginPlay()
 	if (TFICharacterHUD != nullptr)
 	{
 		TFICharacterHUD->AddCharacterOverlay();
+		TFICharacterHUD->AddStopMenu();
 	}
 	SetHUDRespawnNotify(ESlateVisibility::Hidden);
 
@@ -182,6 +212,7 @@ void ATFIPlayerController::AddNewPickupNotify(FString ItemName, int32 ItemAmount
 
 void ATFIPlayerController::ClientAddNewPickupNotify_Implementation(const FString& ItemName, int32 ItemAmount)
 {
+	if (HasAuthority()) return;
 	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
 	bool bHUDValid = TFICharacterHUD &&
 		TFICharacterHUD->CharacterOverlay &&
@@ -204,7 +235,7 @@ void ATFIPlayerController::ClientAddNewPickupNotify_Implementation(const FString
 	}
 }
 
-void ATFIPlayerController::SetHUDMissionTarget(float CurrentProgress, float MissionTarget)
+void ATFIPlayerController::SetHUDMissionTarget(const FString& MissionName, float CurrentProgress, float MissionTarget)
 {
 	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
 	bool bHUDValid = TFICharacterHUD &&
@@ -215,8 +246,29 @@ void ATFIPlayerController::SetHUDMissionTarget(float CurrentProgress, float Miss
 	{
 		float Percentage = CurrentProgress / MissionTarget;
 		TFICharacterHUD->CharacterOverlay->MissionBar->SetPercent(Percentage);
-		FString MissionText = FString::Printf(TEXT("%d / %d"), FMath::FloorToInt(CurrentProgress), FMath::FloorToInt(MissionTarget));
-		TFICharacterHUD->CharacterOverlay->MissionText->SetText(FText::FromString(MissionText));
+		if (Percentage < 1)
+		{
+			FString MissionText = MissionName + FString::Printf(TEXT("%d / %d"), FMath::FloorToInt(CurrentProgress), FMath::FloorToInt(MissionTarget));
+			TFICharacterHUD->CharacterOverlay->MissionText->SetText(FText::FromString(MissionText));
+		}
+		else
+		{
+			FString MissionText = TEXT("任务完成 - 按下[ ESC ]呼出菜单即可离开游戏");
+			TFICharacterHUD->CharacterOverlay->MissionText->SetText(FText::FromString(MissionText));
+		}
+	}
+}
+
+void ATFIPlayerController::SetHUDRespawnTimes(int32 RemainTimes, int32 MaxTimes)
+{
+	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
+	bool bHUDValid = TFICharacterHUD &&
+		TFICharacterHUD->CharacterOverlay &&
+		TFICharacterHUD->CharacterOverlay->RespawnText;
+	if (bHUDValid)
+	{
+		FString RespawnText = FString::Printf(TEXT("全队剩余重生次数: %d / %d"), RemainTimes, MaxTimes);
+		TFICharacterHUD->CharacterOverlay->RespawnText->SetText(FText::FromString(RespawnText));
 	}
 }
 
@@ -242,7 +294,14 @@ void ATFIPlayerController::ClientSetHUDScoreBoard_Implementation(const FString& 
 
 		if (bScoreBoardValid)
 		{
-			ScoreBoard->PlayerName->SetText(FText::FromString(OtherPlayerName));
+			FString PlayerNameText = OtherPlayerName;
+			if (OtherPlayerName.Len() > 10)
+			{
+				PlayerNameText = OtherPlayerName.Left(10) + TEXT("...");
+			}
+			PlayerNameText = PlayerNameText + TEXT(" - ");
+			
+			ScoreBoard->PlayerName->SetText(FText::FromString(PlayerNameText));
 			FString EliminatedAmountText = FString::Printf(TEXT("%d"), ElimAmount);
 			ScoreBoard->PlayerEliminatedAmount->SetText(FText::FromString(EliminatedAmountText));
 		}
@@ -258,6 +317,56 @@ float ATFIPlayerController::GetServerTime()
 	else
 	{
 		return GetWorld()->GetTimeSeconds() + ClientServerDelta;
+	}
+}
+
+void ATFIPlayerController::SetHUDMinimap(FVector CharacterLocation)
+{
+	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
+	bool bHUDValid = TFICharacterHUD &&
+		TFICharacterHUD->CharacterOverlay &&
+		TFICharacterHUD->CharacterOverlay->Minimap &&
+		TFICharacterHUD->CharacterOverlay->Minimap->MapImage;
+	if (bHUDValid)
+	{
+		FVector2D SizeBoxOffset = FVector2D(TFICharacterHUD->CharacterOverlay->Minimap->MapClippingSizeBox->GetWidthOverride(), TFICharacterHUD->CharacterOverlay->Minimap->MapClippingSizeBox->GetHeightOverride());
+		FVector2D ImageDesiredSize = TFICharacterHUD->CharacterOverlay->Minimap->MapImage->GetBrush().GetImageSize();
+		FVector2D MapWorldSize = FVector2D(50400.f, 50400.f);
+		FVector2D CharacterLocation2D = FVector2D(CharacterLocation.X, CharacterLocation.Y);
+		// 第一个除是获取玩家当前位置在世界中的相对比例(0 ~ 100)%；第二个乘是将这个比例放到图片对应的中心位置；
+		// 又因为图片对齐的是左上角，想看到右下角的图片内容需要将图片移动到负坐标轴；最后减去这部分是因为地图有正有负，减去图片size/2可以保证对齐到右上角
+		FVector2D MapRenderTranslation = CharacterLocation2D / MapWorldSize * ImageDesiredSize * -1.f - 2500.f + SizeBoxOffset / 2.f;
+		TFICharacterHUD->CharacterOverlay->Minimap->MapImage->SetRenderTranslation(MapRenderTranslation);
+	}
+}
+
+void ATFIPlayerController::SetHUDTitleMessage(const FString& Message, const FSlateColor& TextColor, float RemoveDelay)
+{
+	ClientSetHUDTitleMessage(Message, TextColor, RemoveDelay);
+}
+
+void ATFIPlayerController::ClientSetHUDTitleMessage_Implementation(const FString& Message, const FSlateColor& TextColor, float RemoveDelay)
+{
+	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
+	bool bHUDValid = TFICharacterHUD &&
+		TFICharacterHUD->CharacterOverlay &&
+		TFICharacterHUD->CharacterOverlay->TitleMessage;
+	if (bHUDValid)
+	{
+		TFICharacterHUD->CharacterOverlay->TitleMessage->SetVisibility(ESlateVisibility::Visible);
+		TFICharacterHUD->CharacterOverlay->TitleMessage->SetText(FText::FromString(Message));
+		TFICharacterHUD->CharacterOverlay->TitleMessage->SetColorAndOpacity(TextColor);
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			World->GetTimerManager().ClearTimer(TitleRemoveTimer);
+			World->GetTimerManager().SetTimer(
+				TitleRemoveTimer,
+				this,
+				&ATFIPlayerController::OnTitleRemvoeTimerFinished,
+				RemoveDelay
+			);
+		}
 	}
 }
 
@@ -281,6 +390,15 @@ void ATFIPlayerController::PollInit()
 						GameState->AddTotalElimAmount(0);
 					}
 					bInitializeMissionTarget = false;
+				}
+				if (HasAuthority() && bInitializeRespawnTimes)
+				{
+					ATFIGameState* GameState = GetWorld()->GetGameState<ATFIGameState>();
+					if (GameState)
+					{
+						GameState->AddRespawnTimes(0);
+					}
+					bInitializeRespawnTimes = false;
 				}
 			}
 		}
@@ -317,6 +435,19 @@ void ATFIPlayerController::CheckTimeSync(float DeltaTime)
 	{
 		ServerRequestServerTime(GetWorld()->GetTimeSeconds());
 		TimeSyncRunningTime = 0.f;
+	}
+}
+
+void ATFIPlayerController::OnTitleRemvoeTimerFinished()
+{
+
+	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
+	bool bHUDValid = TFICharacterHUD &&
+		TFICharacterHUD->CharacterOverlay &&
+		TFICharacterHUD->CharacterOverlay->TitleMessage;
+	if (bHUDValid)
+	{
+		TFICharacterHUD->CharacterOverlay->TitleMessage->SetVisibility(ESlateVisibility::Hidden);
 	}
 }
 

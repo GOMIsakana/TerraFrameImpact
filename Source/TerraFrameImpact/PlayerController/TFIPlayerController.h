@@ -34,9 +34,22 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientAddNewPickupNotify(const FString& ItemName, int32 ItemAmount);
 
-	void SetHUDMissionTarget(float CurrentProgress, float MissionTarget);
+	void SetHUDMissionTarget(const FString& MissionName, float CurrentProgress, float MissionTarget);
+
+	void SetHUDRespawnTimes(int32 RemainTimes, int32 MaxTimes);
 
 	float GetServerTime();
+
+	void SetHUDMinimap(FVector CharacterLocation);
+
+	void SetHUDTitleMessage(const FString& Message, const FSlateColor& TextColor, float RemoveDelay);
+
+	UFUNCTION(Client, Reliable)
+	void ClientSetHUDTitleMessage(const FString& Message, const FSlateColor& TextColor, float RemoveDelay);
+
+	void SwitchHUDMenu();
+	void CallHUDMenu();
+	void TearHUDMenu();
 
 protected:
 	virtual void BeginPlay() override;
@@ -76,13 +89,19 @@ private:
 	class ATFIGameMode* TFIGameMode;
 
 	bool bInitializeMissionTarget = true;
+	bool bInitializeRespawnTimes = true;
 
 	int32 PlayerIndex = 0;
+
+	FTimerHandle TitleRemoveTimer;
+	void OnTitleRemvoeTimerFinished();
+
+	bool bCallingMenu = false;
 
 public:
 	FORCEINLINE int32 GetPlayerIndex() const { return PlayerIndex; }
 	FORCEINLINE void SetPlayerIndex(int32 Index) { PlayerIndex = Index; }
 	FORCEINLINE void SetPollInitPlayerNameList(const TArray<FString>& PlayerNameList) { PollInitPlayerNameList = PlayerNameList; }
 	FORCEINLINE void SetPollInitPlayerIndexList(const TArray<int32>& PlayerIndexList) { PollInitPlayerIndexList = PlayerIndexList; }
-
+	FORCEINLINE bool GetCallingMenu() const { return bCallingMenu; }
 };

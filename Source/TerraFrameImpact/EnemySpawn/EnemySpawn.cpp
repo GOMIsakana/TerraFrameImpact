@@ -74,7 +74,10 @@ void AEnemySpawn::OnSpawnTimerFinished()
 			return;
 		}
 	}
-	TotalSpawnTimes--;
+	if (TotalSpawnTimes > 0)
+	{
+		TotalSpawnTimes = FMath::Max(TotalSpawnTimes - SpawnAmountOneTime, 0);
+	}
 	if (TotalSpawnTimes == 0)
 	{
 		StopSpawn();

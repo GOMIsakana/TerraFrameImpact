@@ -15,6 +15,7 @@
 #include "TerraFrameImpact/HUD/TFICharacterHUD.h"
 #include "TerraFrameImpact/PlayerController/TFIPlayerController.h"
 #include "TerraFrameImpact/AIController/TFIAIController.h"
+#include "TerraFrameImpact/Character/TFIAICharacter.h"
 
 // Sets default values for this component's properties
 UTFICombatComponent::UTFICombatComponent()
@@ -32,6 +33,7 @@ void UTFICombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(UTFICombatComponent, bIsDashing);
 	DOREPLIFETIME(UTFICombatComponent, CharacterState);
 	DOREPLIFETIME(UTFICombatComponent, BulletJumpFacingRotator);
+	DOREPLIFETIME(UTFICombatComponent, bPreparingBattle);
 	DOREPLIFETIME_CONDITION(UTFICombatComponent, CurrentCarriedAmmo, COND_OwnerOnly);
 }
 
@@ -46,11 +48,12 @@ void UTFICombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (Character && Character->IsLocallyControlled())
+	if (Character && Character->IsLocallyControlled() && Character->IsPlayerControlled())
 	{
 		FHitResult HitResult;
 		TraceUnderCrossHair(HitResult);
 		// 有时候会出现“对着墙也会找不到ImpactPoint”的情况，需要解决
+		/*
 		if (HitResult.bBlockingHit)
 		{
 			HitTarget = HitResult.ImpactPoint;
@@ -58,6 +61,17 @@ void UTFICombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 		else
 		{
 			HitTarget = HitResult.TraceEnd;
+		}
+		*/
+		HitTarget = HitResult.ImpactPoint;
+		ATFICharacter* TraceHitCharacter = Cast<ATFICharacter>(HitResult.GetActor());
+		if (TraceHitCharacter)
+		{
+			bTraceHitPlayer = TraceHitCharacter->IsPlayerControlled();
+		}
+		else
+		{
+			bTraceHitPlayer = false;
 		}
 		SetHUDCrosshairs(DeltaTime);
 
@@ -109,7 +123,7 @@ void UTFICombatComponent::SetHUDCrosshairs(float DeltaTime)
 		HUD = HUD == nullptr ? Cast<ATFICharacterHUD>(Controller->GetHUD()) : HUD;
 		if (HUD)
 		{
-			if (HoldingWeapon)
+			if (HoldingWeapon && !bTraceHitPlayer)
 			{
 				HUDPackage.CrosshairsCenter = HoldingWeapon->CrosshairsCenter;
 				HUDPackage.CrosshairsLeft = HoldingWeapon->CrosshairsLeft;
@@ -172,6 +186,7 @@ void UTFICombatComponent::AttachActorToCharacterMesh(AActor* OtherActor, FName S
 	if (MeshSocket != nullptr)
 	{
 		MeshSocket->AttachActor(OtherActor, Character->GetMesh());
+		FVector SocketLocation = MeshSocket->GetSocketLocalTransform().GetLocation();
 	}
 }
 
@@ -403,7 +418,7 @@ void UTFICombatComponent::FireShotgunWeapon()
 
 void UTFICombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TargetPos)
 {
-	MulticastFire_Implementation(TargetPos);
+	MulticastFire(TargetPos);
 }
 
 void UTFICombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TargetPos)
@@ -479,8 +494,14 @@ void UTFICombatComponent::ServerReload_Implementation()
 {
 	if (Character == nullptr || HoldingWeapon == nullptr) return;
 
+	Dash(false);
 	CharacterState = ECharacterState::ECS_Reload;
 	if (!Character->IsLocallyControlled()) LocalReload();
+}
+
+void UTFICombatComponent::OnRep_PreparingBattle()
+{
+
 }
 
 void UTFICombatComponent::StartPreparingBattleTimer()
@@ -493,12 +514,20 @@ void UTFICombatComponent::StartPreparingBattleTimer()
 		&UTFICombatComponent::PreparingBattleTimerFinished,
 		5.f
 	);
+	if (Character->GetNetConnection() != nullptr)
+	{
+		ServerSetPreparingBattle(true);
+	}
 	bPreparingBattle = true;
 }
 
 void UTFICombatComponent::ClearPreparingBattleTimer()
 {
 	bPreparingBattle = false;
+	if (Character->GetNetConnection() != nullptr)
+	{
+		ServerSetPreparingBattle(false);
+	}
 	Dash(bDashButtonPressed);
 	GetWorld()->GetTimerManager().ClearTimer(PreparingBattleTimer);
 }
@@ -506,7 +535,16 @@ void UTFICombatComponent::ClearPreparingBattleTimer()
 void UTFICombatComponent::PreparingBattleTimerFinished()
 {
 	bPreparingBattle = false;
+	if (Character->GetNetConnection() != nullptr)
+	{
+		ServerSetPreparingBattle(false);
+	}
 	Dash(bDashButtonPressed);
+}
+
+void UTFICombatComponent::ServerSetPreparingBattle_Implementation(bool bPreparing)
+{
+	bPreparingBattle = bPreparing;
 }
 
 void UTFICombatComponent::OnRep_CarriedAmmo()
@@ -520,6 +558,7 @@ void UTFICombatComponent::OnRep_CarriedAmmo()
 
 void UTFICombatComponent::LocalReload()
 {
+	Dash(false);
 	if (Character && HoldingWeapon)
 	{
 		Character->PlayReloadMontage(HoldingWeapon->GetWeaponType());
@@ -560,6 +599,10 @@ void UTFICombatComponent::ReloadCompleted()
 	if (bFireButtonPressed)
 	{
 		Fire();
+	}
+	if (bDashButtonPressed)
+	{
+		Dash(true);
 	}
 }
 
@@ -748,7 +791,13 @@ void UTFICombatComponent::OnRep_CharacterState()
 bool UTFICombatComponent::CanFire()
 {
 	if (HoldingWeapon == nullptr) return false;
-	return !HoldingWeapon->IsEmpty() && bCanFire && CharacterState == ECharacterState::ECS_Normal && Character && !Character->GetCharacterMovement()->IsFalling() && !(Character->IsDying() || Character->IsElimmed());
+	return !HoldingWeapon->IsEmpty() && 
+		bCanFire &&
+		!bTraceHitPlayer &&
+		CharacterState == ECharacterState::ECS_Normal && 
+		Character && 
+		!Character->GetCharacterMovement()->IsFalling() && 
+		!(Character->IsDying() || Character->IsElimmed());
 }
 
 void UTFICombatComponent::BulletJumpCompleted()
@@ -762,10 +811,6 @@ void UTFICombatComponent::BulletJumpCompleted()
 	bBulletJumping = false;
 	CharacterState = ECharacterState::ECS_Normal;
 	Character->UnCrouch();
-	if (!Character->GetCharacterMovement()->IsFalling())
-	{
-		ResetBulletJumpLimit();
-	}
 
 }
 

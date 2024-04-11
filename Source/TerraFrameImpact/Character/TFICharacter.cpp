@@ -21,6 +21,7 @@
 #include "TerraFrameImpact/PlayerController/TFIPlayerController.h"
 #include "TerraFrameImpact/GameMode/TFIGameMode.h"
 #include "TerraFrameImpact/HUD/OverHeadHealthBar.h"
+#include "TerraFrameImpact/PlayerState/TFIPlayerState.h"
 
 ATFICharacter::ATFICharacter()
 {
@@ -83,7 +84,13 @@ void ATFICharacter::Tick(float DeltaTime)
 		RecoveryShield();
 	}
 	UpdateHUDHealth();
-	UpdateHUDShield();
+	UpdateHUDShield(); 
+	UpdateMinimapTranslation();
+
+	if (!GetCharacterMovement()->IsFalling() && CombatComponent)
+	{
+		CombatComponent->ResetBulletJumpLimit();
+	}
 	/*
 	FVector Velocity = GetVelocity();
 	Velocity.Z = 0.f;
@@ -149,6 +156,10 @@ void ATFICharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 		if (ReloadAction)
 		{
 			EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &ATFICharacter::OnReloadButtonPressed);
+		}
+		if (MenuAction)
+		{
+			EnhancedInputComponent->BindAction(MenuAction, ETriggerEvent::Started, this, &ATFICharacter::OnMenuButtonPressed);
 		}
 	}
 	//PlayerInputComponent->BindAction(FName("Move"), ETriggerEvent::Triggered, this, );
@@ -353,16 +364,11 @@ void ATFICharacter::StopJumping()
 void ATFICharacter::Landed(const FHitResult& Hit)
 {
 	Super::Landed(Hit);
-
-	if (CombatComponent)
-	{
-		CombatComponent->ResetBulletJumpLimit();
-	}
 }
 
 void ATFICharacter::OnAim()
 {
-	if (CombatComponent && CombatComponent->bIsAiming == false)
+	if (CombatComponent)
 	{
 		CombatComponent->SetAiming(true);
 	}
@@ -370,7 +376,7 @@ void ATFICharacter::OnAim()
 
 void ATFICharacter::OnAimCompoleted()
 {
-	if (CombatComponent && CombatComponent->bIsAiming == true)
+	if (CombatComponent)
 	{
 		CombatComponent->SetAiming(false);
 	}
@@ -447,6 +453,15 @@ void ATFICharacter::OnReloadButtonPressed()
 	if (CombatComponent)
 	{
 		CombatComponent->ReloadWeapon();
+	}
+}
+
+void ATFICharacter::OnMenuButtonPressed()
+{
+	TFIPlayerController = TFIPlayerController == nullptr ? Cast<ATFIPlayerController>(Controller) : TFIPlayerController;
+	if (TFIPlayerController)
+	{
+		TFIPlayerController->SwitchHUDMenu();
 	}
 }
 
@@ -617,19 +632,19 @@ void ATFICharacter::AimOffset(float DeltaTime)
 			}
 			bUseControllerRotationYaw = false;
 			GetCharacterMovement()->bOrientRotationToMovement = true;
+			// ServerSetMovementMode(false, true);
 		}
 		if (Speed > 0.f || bIsInAir)
 		{
 			bAO_YawOutofRange = false;
-			bUseControllerRotationYaw = false;
+			bool bUsingOrientRotationToMovement = true;
 			if (bIsInAir)
 			{
-				GetCharacterMovement()->bOrientRotationToMovement = false;
+				bUsingOrientRotationToMovement = false;
 			}
-			else
-			{
-				GetCharacterMovement()->bOrientRotationToMovement = true;
-			}
+			bUseControllerRotationYaw = false;
+			GetCharacterMovement()->bOrientRotationToMovement = bUsingOrientRotationToMovement;
+			// ServerSetMovementMode(false, bUsingOrientRotationToMovement);
 			// StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 			StartingAimRotation = FRotator(0.f, GetActorRotation().Yaw, 0.f);
 			AO_Yaw = 0.f;
@@ -639,12 +654,19 @@ void ATFICharacter::AimOffset(float DeltaTime)
 	{
 		StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 		AO_Yaw = 0.f;
+		bAO_YawOutofRange = false;
 		bUseControllerRotationYaw = true;
 		GetCharacterMovement()->bOrientRotationToMovement = false;
-		bAO_YawOutofRange = false;
+		// ServerSetMovementMode(true, false);
 	}
 	// 这里是上下的(Pitch)
 	CalculateAO_Pitch(DeltaTime);
+}
+
+void ATFICharacter::ServerSetMovementMode_Implementation(bool UseControllerRotationYaw, bool OrientRotationToMovement)
+{
+	bUseControllerRotationYaw = UseControllerRotationYaw;
+	GetCharacterMovement()->bOrientRotationToMovement = OrientRotationToMovement;
 }
 
 void ATFICharacter::CalculateAO_Pitch(float DeltaTime)
@@ -753,6 +775,15 @@ void ATFICharacter::OnHealthBarDisplayTimerFinished()
 	}
 }
 
+void ATFICharacter::UpdateMinimapTranslation()
+{
+	TFIPlayerController = TFIPlayerController == nullptr ? Cast<ATFIPlayerController>(Controller) : TFIPlayerController;
+	if (TFIPlayerController != nullptr)
+	{
+		TFIPlayerController->SetHUDMinimap(GetActorLocation());
+	}
+}
+
 void ATFICharacter::ServerElim_Implementation()
 {
 	MulticastElim();
@@ -794,4 +825,14 @@ void ATFICharacter::MulticastKnockDown_Implementation()
 	GetMesh()->SetSimulatePhysics(true);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+
+void ATFICharacter::ServerLeaveGame_Implementation()
+{
+	TFIGameMode = TFIGameMode == nullptr ? GetWorld()->GetAuthGameMode<ATFIGameMode>() : TFIGameMode;
+	ATFIPlayerState* TFIPlayerState = GetPlayerState<ATFIPlayerState>();
+	if (TFIGameMode && TFIPlayerState)
+	{
+		TFIGameMode->PlayerLeftGame(TFIPlayerState);
+	}
 }

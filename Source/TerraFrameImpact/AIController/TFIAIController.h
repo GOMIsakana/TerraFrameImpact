@@ -32,7 +32,7 @@ private:
 	class UBehaviorTree* BehaviorTree;
 
 	UPROPERTY(EditAnywhere, Category = "AI行为参数")
-	float ExecuteAIDelay = 5.f;
+	float ExecuteAIDelay = .5f;
 
 	UPROPERTY(EditAnywhere, Category = "AI行为参数")
 	float WanderRange = 5000.f;

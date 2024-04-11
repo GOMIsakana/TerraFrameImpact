@@ -6,6 +6,7 @@
 #include "Blueprint/UserWidget.h"
 #include "Components/ProgressBar.h"
 #include "Components/VerticalBox.h"
+#include "TerraFrameImpact/HUD/MinimapWidget.h"
 #include "CharacterOverlay.generated.h"
 
 /**
@@ -50,4 +51,13 @@ public:
 
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* MissionText;
+
+	UPROPERTY(meta = (BindWidget))
+	UMinimapWidget* Minimap;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* RespawnText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* TitleMessage;
 };

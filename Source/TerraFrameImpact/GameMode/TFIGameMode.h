@@ -31,6 +31,8 @@ public:
 
 	void TryInitScoreBoard(ATFIPlayerController* Controller);
 
+	void PlayerLeftGame(ATFIPlayerState* LeaveingPlayer);
+
 protected:
 	void PollInit();
 	TArray<ATFIPlayerController*> OnlinePlayers;
@@ -40,8 +42,6 @@ protected:
 	TArray<int32> OnlinePlayersIndex;
 	TArray<bool> PlayerInitCompleteList;
 	int32 LastPlayerIndex = 0;
-
-	// bool bInitializeScoreBoard = true;
 
 public:
 	FORCEINLINE void AddToOnlinePlayers(ATFIPlayerController* NewPlayer) { OnlinePlayers.Add(NewPlayer); OnlinePlayersName.Add(NewPlayer->GetPlayerState<ATFIPlayerState>()->GetPlayerName()); }

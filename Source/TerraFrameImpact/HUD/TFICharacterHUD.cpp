@@ -7,7 +7,7 @@
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Components/CanvasPanelSlot.h"
 #include "TerraFrameImpact/HUD/CharacterOverlay.h"
-#include "TerraFrameImpact/HUD/CharacterScoreBoard.h"
+#include "TerraFrameImpact/HUD/QuickMenuWidget.h"
 
 void ATFICharacterHUD::DrawHUD()
 {
@@ -87,5 +87,15 @@ void ATFICharacterHUD::AddCharacterOverlay()
 	{
 		CharacterOverlay = CreateWidget<UCharacterOverlay>(PlayerController, CharacterOverlayClass);
 		CharacterOverlay->AddToViewport();
+	}
+}
+
+void ATFICharacterHUD::AddStopMenu()
+{
+	APlayerController* PlayerController = GetOwningPlayerController();
+	if (PlayerController && StopMenuClass)
+	{
+		QuickMenu = CreateWidget<UQuickMenuWidget>(PlayerController, StopMenuClass);
+		QuickMenu->MenuSetup();
 	}
 }

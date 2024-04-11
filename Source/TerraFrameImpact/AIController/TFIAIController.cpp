@@ -31,7 +31,7 @@ void ATFIAIController::Tick(float DeltaTime)
 	FVector CurrentLocation = Character->GetActorLocation();
 
 	CurrentLocation.Z = 0.f;
-	if (Character != nullptr && (CurrentLocation - CurrentTargetLocation).Size() > 2500.f)
+	if (Character != nullptr && (CurrentLocation - CurrentTargetLocation).Size() > 2000.f)
 	{
 		Character->GetCombatComponent()->SetDashButtonPressed(true);
 	}
@@ -47,7 +47,6 @@ void ATFIAIController::ExecuteAI()
 	if (Character == nullptr) return;
 
 
-	UGameplayStatics::GetAllActorsOfClass(this, ATFICharacter::StaticClass(), PlayerCharacterArray);
 	if (CurrentTarget != nullptr && !LineOfSightTo(CurrentTarget))
 	{
 		GetBlackboardComponent()->SetValueAsVector(TEXT("LastTargetLocation"), LastTargetLocation);
@@ -70,6 +69,7 @@ void ATFIAIController::ExecuteAI()
 		GetBlackboardComponent()->ClearValue(TEXT("LastTargetLocation"));
 	}
 
+	UGameplayStatics::GetAllActorsOfClass(this, ATFICharacter::StaticClass(), PlayerCharacterArray);
 	if (CurrentTarget == nullptr || CurrentTarget->IsDying() || CurrentTarget->IsElimmed())
 	{
 		TArray<ATFICharacter*> CanSeePlayers;
@@ -153,7 +153,7 @@ void ATFIAIController::Destroyed()
 
 FVector ATFIAIController::GetTargetHeadLocation()
 {
-	if (CurrentTarget == nullptr) return FVector();
+	if (CurrentTarget == nullptr || CurrentTarget->GetMesh() == nullptr) return FVector();
 	const USkeletalMeshSocket* HeadSocket = CurrentTarget->GetMesh()->GetSocketByName("HeadSocket");
 	FVector HeadLocation = FVector();
 	if (HeadSocket != nullptr)

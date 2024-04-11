@@ -139,11 +139,17 @@ void AWeapon::OnHasOwner()
 void AWeapon::OnDropped()
 {
 	// 设置主人的操作在战斗类里面实现
-	Sphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	if (HasAuthority())
+	{
+		Sphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	}
 	Sphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
 	WeaponMesh->SetSimulatePhysics(true);
 	WeaponMesh->SetEnableGravity(true);
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
+	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
+	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 }
 
 void AWeapon::ClientUpdateAmmo_Implementation(int32 ServerAmmo)
@@ -227,6 +233,7 @@ FVector AWeapon::TraceEndWithSpread(const FVector& HitTarget)
 
 	const FTransform SocketTransform = MuzzleSocket->GetSocketTransform(GetWeaponMesh());
 	const FVector TraceStart = SocketTransform.GetLocation();
+	// UE_LOG(LogTemp, Warning, TEXT("TraceStart: X = %.2f, Y = %.2f, Z = %.2f"), TraceStart.X, TraceStart.Y, TraceStart.Z);
 
 	const FVector ToTargetNormailzed = (HitTarget - TraceStart).GetSafeNormal();	// normal得到的应该是一个长度在1之内的向量
 	const FVector SphereCenter = TraceStart + ToTargetNormailzed * SpreadSphereDistance;	// 从枪口位置到椭圆位置的距离

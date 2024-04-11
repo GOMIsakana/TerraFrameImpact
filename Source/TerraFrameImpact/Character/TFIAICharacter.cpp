@@ -10,7 +10,7 @@
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/KismetMathLibrary.h"
-#include "TerraFrameImpact/Components/TFICombatComponent.h"
+#include "TerraFrameImpact/Components/TFIAICombatComponent.h"
 #include "TerraFrameImpact/Weapons/Weapon.h"
 #include "Net/UnrealNetwork.h"
 #include "Animation/AnimMontage.h"
@@ -29,6 +29,7 @@
 void ATFIAICharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
 	UWorld* World = GetWorld();
 	if (World && CombatComponent && GetHoldingWeapon() == nullptr && HasAuthority())
 	{
@@ -46,7 +47,6 @@ void ATFIAICharacter::Tick(float DeltaTime)
 void ATFIAICharacter::KnockDown()
 {
 	Super::KnockDown();
-
 
 	if (CombatComponent && GetHoldingWeapon() != nullptr)
 	{

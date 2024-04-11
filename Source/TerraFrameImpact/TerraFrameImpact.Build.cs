@@ -8,15 +8,17 @@ public class TerraFrameImpact : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "Niagara", "UMG", "Slate", "SlateCore", "OnlineSubsystem", "OnlineSubsystemSteam", "GameplayTasks" });
+        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "Niagara", "UMG", "Slate", "SlateCore", "OnlineSubsystem", "OnlineSubsystemSteam", "GameplayTasks", "MultiplayerSessions", "AdvancedSessions", "AdvancedSteamSessions", "OnlineSubsystemUtils" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "EnhancedInput" });
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 		
-		 //Uncomment if you are using online features
-		 PrivateDependencyModuleNames.Add("OnlineSubsystem");
+		//Uncomment if you are using online features
+		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
+
+		// PublicIncludePaths.AddRange(new string[] { "MultiplayerSessions/Public", "MultiplayerSessions/Private" })
 
 		// To include OnlineSubsystemSteam, add it to the plugins section in your uproject file with the Enabled attribute set to true
 	}

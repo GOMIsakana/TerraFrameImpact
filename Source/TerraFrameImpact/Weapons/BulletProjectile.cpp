@@ -19,7 +19,7 @@ void ABulletProjectile::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherAc
 	if (OwnerCharacter)
 	{
 		AController* OwnerController = OwnerCharacter->Controller;
-		if (OwnerController)
+		if (OwnerController && OtherActor != OwnerController)
 		{
 			UGameplayStatics::ApplyDamage(
 				OtherActor,

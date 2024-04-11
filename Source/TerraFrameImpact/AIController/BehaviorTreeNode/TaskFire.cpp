@@ -22,6 +22,10 @@ EBTNodeResult::Type UTaskFire::ExecuteTask(UBehaviorTreeComponent& OwnerComp, ui
 	if (Character->IsDying() || Character->IsElimmed()) return EBTNodeResult::Failed;
 
 	Character->GetCombatComponent()->SetFiring(true);
+	if (Character->GetCombatComponent()->CanFire())
+	{
+		Character->PlayFireMontage(false);
+	}
 	Character->GetCombatComponent()->SetFiring(false);
 
 	return EBTNodeResult::Succeeded;

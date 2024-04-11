@@ -39,6 +39,8 @@ public:
 	UFUNCTION()
 	void DropWeapon();
 
+	bool CanFire();
+
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
@@ -48,42 +50,26 @@ protected:
 
 	void SetHUDCrosshairs(float DeltaTime);
 
-private:
-	UFUNCTION()
-	void AttachActorToCharacterMesh(AActor* OtherActor, FName SocketName);
-
 	UPROPERTY(VisibleAnywhere)
 	ATFICharacter* Character;
 
 	UPROPERTY(ReplicatedUsing = OnRep_HoldingWeapon)
 	class AWeapon* HoldingWeapon;
 
-	UPROPERTY(ReplicatedUsing = OnRep_IsAiming)
-	bool bIsAiming = false;
-	bool bAimButtonPressed = false;
-	UPROPERTY(Replicated = true)
-	bool bIsDashing = false;
-	bool bDashButtonPressed = false;
-	bool bIsReloading = false;
-
 	UFUNCTION()
 	void OnRep_HoldingWeapon(AWeapon* LastWeapon);
 
-	UFUNCTION(Server, Reliable)
-	void ServerStartDash();
+	FVector_NetQuantize HitTarget;
+
+	UPROPERTY(ReplicatedUsing = OnRep_CharacterState)
+	ECharacterState CharacterState = ECharacterState::ECS_Normal;
 	UFUNCTION()
-	void Dash(bool state);
-	UFUNCTION(Server, Reliable)
-	void ServerStopDash();
-
-	UFUNCTION(Server, Reliable)
-	void ServerSetAiming(bool state);
-
-	void TraceUnderCrossHair(FHitResult& HitResult);
+	void OnRep_CharacterState();
 	void Fire();
 	void FireProjectileWeapon();
 	void FireHitScanWeapon();
 	void FireShotgunWeapon();
+	void TraceUnderCrossHair(FHitResult& HitResult);
 	UFUNCTION(Server, Reliable)
 	void ServerFire(const FVector_NetQuantize& TargetPos);
 	UFUNCTION(NetMulticast, Reliable)
@@ -94,7 +80,6 @@ private:
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastShotgunFire(const TArray<FVector_NetQuantize>& TargetPosList);
 	void LocalShotgunFire(const TArray<FVector_NetQuantize>& TargetPosList);
-	FVector HitTarget;
 	FTimerHandle FireTimer;
 	UFUNCTION()
 	void StartFireTimer();
@@ -102,7 +87,11 @@ private:
 	void FireTimerFinished();
 	bool bCanFire = true;
 	bool bFireButtonPressed;
+
+	UPROPERTY(ReplicatedUsing = OnRep_PreparingBattle)
 	bool bPreparingBattle = false;
+	UFUNCTION()
+	void OnRep_PreparingBattle();
 	FTimerHandle PreparingBattleTimer;
 	UFUNCTION()
 	void StartPreparingBattleTimer();
@@ -110,6 +99,8 @@ private:
 	void ClearPreparingBattleTimer();
 	UFUNCTION()
 	void PreparingBattleTimerFinished();
+	UFUNCTION(Server, Reliable)
+	void ServerSetPreparingBattle(bool bPreparing);
 
 	UPROPERTY(ReplicatedUsing = OnRep_CarriedAmmo)
 	int32 CurrentCarriedAmmo;
@@ -122,11 +113,33 @@ private:
 	void ReloadEmptyWeapon();
 	UFUNCTION(BlueprintCallable)
 	void ReloadCompleted();
-	bool CanFire();
 	TMap<EWeaponType, int32> CarriedAmmoMap;
 	void InitCarriedAmmo();
 	void UpdateAmmoValue();
 	void UpdateCarriedValue();
+
+
+private:
+	UFUNCTION()
+	void AttachActorToCharacterMesh(AActor* OtherActor, FName SocketName);
+
+	UPROPERTY(ReplicatedUsing = OnRep_IsAiming)
+	bool bIsAiming = false;
+	bool bAimButtonPressed = false;
+	UPROPERTY(Replicated = true)
+	bool bIsDashing = false;
+	bool bDashButtonPressed = false;
+	bool bIsReloading = false;
+
+	UFUNCTION(Server, Reliable)
+	void ServerStartDash();
+	UFUNCTION()
+	void Dash(bool state);
+	UFUNCTION(Server, Reliable)
+	void ServerStopDash();
+
+	UFUNCTION(Server, Reliable)
+	void ServerSetAiming(bool state);
 
 	UFUNCTION()
 	void Slide();
@@ -186,11 +199,6 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move", meta = (AllowPrivateAccess = "true"))
 	float CrouchSpeed = 200.f;
 
-	UPROPERTY(ReplicatedUsing = OnRep_CharacterState)
-	ECharacterState CharacterState = ECharacterState::ECS_Normal;
-	UFUNCTION()
-	void OnRep_CharacterState();
-
 	UPROPERTY()
 	class ATFIPlayerController* Controller;
 	UPROPERTY()
@@ -200,6 +208,7 @@ private:
 	float CrosshairFallingFactor;
 	float CrosshairAimFactor;
 	float CrosshairShootFactor;
+	bool bTraceHitPlayer = false;
 
 public:	
 	UFUNCTION(BlueprintCallable)
@@ -207,4 +216,5 @@ public:
 	FORCEINLINE void SetHitTarget(FVector OtherHitTarget) { HitTarget = OtherHitTarget; }
 	FORCEINLINE AWeapon* GetHoldingWeapon() const { return HoldingWeapon; }
 	const USkeletalMeshSocket* GetHoldingWeaponMuzzleFlash();
+	FORCEINLINE bool GetTraceHitPlayer() const { return bTraceHitPlayer; }
 };

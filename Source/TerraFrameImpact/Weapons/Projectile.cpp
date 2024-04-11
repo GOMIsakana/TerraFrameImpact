@@ -113,6 +113,8 @@ void AProjectile::ExplodeDamage()
 		AController* FiringController = FiringPawn->GetController();
 		if (FiringController)
 		{
+			TArray<AActor*> IgnoreActor;
+			IgnoreActor.AddUnique(FiringController);
 			UGameplayStatics::ApplyRadialDamageWithFalloff(
 				this, // World context object
 				ExplodeMaxDamage, // BaseDamage
@@ -122,7 +124,7 @@ void AProjectile::ExplodeDamage()
 				DamageOuterRadius, // DamageOuterRadius
 				1.f, // DamageFalloff
 				UDamageType::StaticClass(), // DamageTypeClass
-				TArray<AActor*>(), // IgnoreActors
+				IgnoreActor, // IgnoreActors
 				this, // DamageCauser
 				FiringController // InstigatorController
 			);

@@ -5,9 +5,12 @@
 #include "TerraFrameImpact/Character/TFICharacter.h"
 #include "TerraFrameImpact/PlayerController/TFIPlayerController.h"
 #include "TerraFrameImpact/PlayerState/TFIPlayerState.h"
+#include "TerraFrameImpact/GameState/TFIGameState.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
+#include "MultiplayerSessionsSubsystem.h"
 #include "Net/UnrealNetwork.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 ATFIGameMode::ATFIGameMode()
 {
@@ -39,6 +42,7 @@ void ATFIGameMode::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 
 void ATFIGameMode::RequestRespawn(ACharacter* ElimmitedCharacter, AController* ElimmedController)
 {
+	ATFIGameState* TFIGameState = Cast<ATFIGameState>(GameState);
 	if (ElimmitedCharacter)
 	{
 		ElimmitedCharacter->Reset();
@@ -47,6 +51,10 @@ void ATFIGameMode::RequestRespawn(ACharacter* ElimmitedCharacter, AController* E
 	if (ElimmedController)
 	{
 		RestartPlayerAtTransform(ElimmedController, ElimmitedCharacter->GetActorTransform());
+	}
+	if (TFIGameState)
+	{
+		TFIGameState->AddRespawnTimes(-1);
 	}
 }
 
@@ -122,7 +130,16 @@ void ATFIGameMode::TryInitScoreBoard(ATFIPlayerController* Controller)
 					OtherPlayerState->GetPlayerElimAmount());
 			}
 		}
-		// Controller->SetPlayerInitializeScoreBoard(!(Controller->GetScoreBoardLength() == LastPlayerIndex));
+	}
+}
+
+void ATFIGameMode::PlayerLeftGame(ATFIPlayerState* LeaveingPlayer)
+{
+	if (LeaveingPlayer == nullptr) return;
+	ATFICharacter* CharacterLeaving = Cast<ATFICharacter>(LeaveingPlayer->GetPawn());
+	if (CharacterLeaving)
+	{
+		CharacterLeaving->Destroy();
 	}
 }
 
@@ -137,23 +154,5 @@ void ATFIGameMode::PollInit()
 		{
 			TryInitScoreBoard(ThisPlayerController);
 		}
-		/*
-		if (ThisPlayerController != nullptr)
-		{
-			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; It++)
-			{
-				ATFIPlayerController* OtherPlayerController = Cast<ATFIPlayerController>(*It);
-				// UE_LOG(LogTemp, Warning, TEXT("%s: OtherPlayerIndex = %d"), OtherPlayerController->HasAuthority() ? TEXT("Server") : TEXT("Client"), OtherPlayerController->GetPlayerIndex())
-				if (OtherPlayerController == nullptr) continue;
-				ATFIPlayerState* OtherPlayerState = OtherPlayerController->GetPlayerState<ATFIPlayerState>();
-				if (OtherPlayerState != nullptr)
-				{
-					ThisPlayerController->SetHUDScoreBoard(OtherPlayerState->GetPlayerName(), 
-						OtherPlayerController->GetPlayerIndex(), 
-						OtherPlayerState->GetPlayerElimAmount());
-				}
-			}
-		}
-		*/
 	}
 }
