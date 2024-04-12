@@ -51,6 +51,9 @@ public:
 	void CallHUDMenu();
 	void TearHUDMenu();
 
+	UFUNCTION(Client, Reliable)
+	void ClientSetHUDPlayerAmount(int32 CurrentPlayerAmount, int32 MaxPlayerAmount);
+
 protected:
 	virtual void BeginPlay() override;
 	void PollInit();
@@ -94,7 +97,7 @@ private:
 	int32 PlayerIndex = 0;
 
 	FTimerHandle TitleRemoveTimer;
-	void OnTitleRemvoeTimerFinished();
+	void OnTitleRemoveTimerFinished();
 
 	bool bCallingMenu = false;
 

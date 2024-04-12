@@ -8,11 +8,13 @@
 #include "Components/ProgressBar.h"
 #include "TerraFrameImpact/PlayerController/TFIPlayerController.h"
 #include "TerraFrameImpact/GameMode/TFIGameMode.h"
+#include "TerraFrameImpact/GameMode/TFILobbyGameMode.h"
 #include "TerraFrameImpact/PlayerState/TFIPlayerState.h"
 #include "TerraFrameImpact/GameState/TFIGameState.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 #include "TerraFrameImpact/HUD/QuickMenuWidget.h"
+#include "TerraFrameImpact/HUD/LobbyOverlay.h"
 
 void ATFIPlayerController::Tick(float DeltaTime)
 {
@@ -51,6 +53,19 @@ void ATFIPlayerController::TearHUDMenu()
 	}
 }
 
+void ATFIPlayerController::ClientSetHUDPlayerAmount_Implementation(int32 CurrentPlayerAmount, int32 MaxPlayerAmount)
+{
+	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
+	bool bHUDValid = TFICharacterHUD &&
+		TFICharacterHUD->LobbyOverlay &&
+		TFICharacterHUD->LobbyOverlay->PlayerAmountText;
+	if (bHUDValid)
+	{
+		FString AmountString = TEXT("当前房间人数: ") + FString::Printf(TEXT("%d / %d"), CurrentPlayerAmount, MaxPlayerAmount);
+		TFICharacterHUD->LobbyOverlay->PlayerAmountText->SetText(FText::FromString(AmountString));
+	}
+}
+
 void ATFIPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
@@ -60,6 +75,7 @@ void ATFIPlayerController::BeginPlay()
 	{
 		TFICharacterHUD->AddCharacterOverlay();
 		TFICharacterHUD->AddStopMenu();
+		TFICharacterHUD->AddLobbyOverlay();
 	}
 	SetHUDRespawnNotify(ESlateVisibility::Hidden);
 
@@ -71,6 +87,7 @@ void ATFIPlayerController::BeginPlay()
 		if (HasAuthority())
 		{
 			TFIGameMode->AddToOnlinePlayers(this);
+			ClientSetHUDPlayerAmount(1, 4);
 		}
 	}
 }
@@ -363,7 +380,7 @@ void ATFIPlayerController::ClientSetHUDTitleMessage_Implementation(const FString
 			World->GetTimerManager().SetTimer(
 				TitleRemoveTimer,
 				this,
-				&ATFIPlayerController::OnTitleRemvoeTimerFinished,
+				&ATFIPlayerController::OnTitleRemoveTimerFinished,
 				RemoveDelay
 			);
 		}
@@ -438,7 +455,7 @@ void ATFIPlayerController::CheckTimeSync(float DeltaTime)
 	}
 }
 
-void ATFIPlayerController::OnTitleRemvoeTimerFinished()
+void ATFIPlayerController::OnTitleRemoveTimerFinished()
 {
 
 	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;

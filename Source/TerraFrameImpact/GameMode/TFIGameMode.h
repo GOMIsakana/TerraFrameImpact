@@ -33,8 +33,11 @@ public:
 
 	void PlayerLeftGame(ATFIPlayerState* LeaveingPlayer);
 
+	UFUNCTION(BlueprintCallable)
+	void EndGame();
+
 protected:
-	void PollInit();
+	virtual void PollInit(APlayerController* TargetPlayer);
 	TArray<ATFIPlayerController*> OnlinePlayers;
 	UPROPERTY(Replicated = true)
 	TArray<FString> OnlinePlayersName;
@@ -42,6 +45,12 @@ protected:
 	TArray<int32> OnlinePlayersIndex;
 	TArray<bool> PlayerInitCompleteList;
 	int32 LastPlayerIndex = 0;
+
+	UPROPERTY(EditAnywhere)
+	float EndGameDealy = 5.f;
+	float EndCountdown = 5.f;
+	FTimerHandle EndGameTimer;
+	void OnEndGameTimerFinish();
 
 public:
 	FORCEINLINE void AddToOnlinePlayers(ATFIPlayerController* NewPlayer) { OnlinePlayers.Add(NewPlayer); OnlinePlayersName.Add(NewPlayer->GetPlayerState<ATFIPlayerState>()->GetPlayerName()); }

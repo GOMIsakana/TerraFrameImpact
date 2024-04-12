@@ -3,16 +3,19 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/GameMode.h"
+#include "TerraFrameImpact/GameMode/TFIGameMode.h"
 #include "TFILobbyGameMode.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class TERRAFRAMEIMPACT_API ATFILobbyGameMode : public AGameMode
+class TERRAFRAMEIMPACT_API ATFILobbyGameMode : public ATFIGameMode
 {
 	GENERATED_BODY()
 public:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
+
+protected:
+	virtual void PollInit(APlayerController* TargetPlayer) override;
 };

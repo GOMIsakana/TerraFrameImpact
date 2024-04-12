@@ -31,10 +31,13 @@ public:
 	virtual void DrawHUD() override;
 	void AddCharacterOverlay();
 	void AddStopMenu();
+	void AddLobbyOverlay();
 	UPROPERTY(VisibleAnywhere, Category = "玩家状态")
 	class UCharacterOverlay* CharacterOverlay;
 	UPROPERTY(VisibleAnywhere, Category = "玩家状态")
 	class UQuickMenuWidget* QuickMenu;
+	UPROPERTY(VisibleAnywhere, Category = "玩家状态")
+	class ULobbyOverlay* LobbyOverlay;
 
 protected:
 	virtual void BeginPlay() override;
@@ -55,6 +58,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "玩家状态")
 	TSubclassOf<class UUserWidget> StopMenuClass;
+
+	UPROPERTY(EditAnywhere, Category = "玩家状态")
+	TSubclassOf<class UUserWidget> LobbyOverlayClass;
 
 public:
 	FORCEINLINE void SetCrosshairPackage(const FCrosshairPackage& Package) { CrosshairPackage = Package; }

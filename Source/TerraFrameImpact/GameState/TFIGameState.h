@@ -15,6 +15,7 @@ class TERRAFRAMEIMPACT_API ATFIGameState : public AGameState
 	GENERATED_BODY()
 
 public:
+	ATFIGameState();
 	virtual void AddTotalElimAmount(int32 AmountToAdd);
 	virtual void AddEnemyAmount(int32 AmountToAdd);
 	virtual void AddRespawnTimes(int32 AmountToAdd);

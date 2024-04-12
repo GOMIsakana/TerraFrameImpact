@@ -4,6 +4,7 @@
 #include "TFIAnnihilateMissionGameState.h"
 #include "Net/UnrealNetwork.h"
 #include "TerraFrameImpact/GameMode/TFIGameMode.h"
+#include "TerraFrameImpact/GameMode/TFIAnnihilateGameMode.h"
 #include "TerraFrameImpact/PlayerController/TFIPlayerController.h"
 
 void ATFIAnnihilateMissionGameState::AddTotalElimAmount(int32 AmountToAdd)
@@ -18,6 +19,12 @@ void ATFIAnnihilateMissionGameState::AddTotalElimAmount(int32 AmountToAdd)
 		{
 			FSlateColor TitleColor = FSlateColor(FColor::Cyan);
 			PlayerController->SetHUDTitleMessage(TEXT("- 任务完成 -"), TitleColor, 5.f);
+			GetWorld()->GetTimerManager().SetTimer(
+				EndGameTimer,
+				this,
+				&ThisClass::OnEndGameTimerFinished,
+				5.f
+			);
 		}
 	}
 }
@@ -61,5 +68,14 @@ void ATFIAnnihilateMissionGameState::OnRep_TotalElimAmount()
 			FSlateColor TitleColor = FSlateColor(FColor::Cyan);
 			PlayerController->SetHUDTitleMessage(TEXT("- 任务完成 -"), TitleColor, 5.f);
 		}
+	}
+}
+
+void ATFIAnnihilateMissionGameState::OnEndGameTimerFinished()
+{
+	ATFIAnnihilateGameMode* AnnihilateGameMode = Cast<ATFIAnnihilateGameMode>(GetWorld()->GetAuthGameMode());
+	if (AnnihilateGameMode)
+	{
+		AnnihilateGameMode->EndGame();
 	}
 }

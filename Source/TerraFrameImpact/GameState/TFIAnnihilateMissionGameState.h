@@ -26,4 +26,8 @@ protected:
 	int32 TargetElimAmount = 10;
 
 	virtual void OnRep_TotalElimAmount() override;
+
+private:
+	void OnEndGameTimerFinished();
+	FTimerHandle EndGameTimer;
 };

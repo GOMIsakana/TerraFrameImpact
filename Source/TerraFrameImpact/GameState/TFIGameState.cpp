@@ -6,6 +6,11 @@
 #include "TerraFrameImpact/GameMode/TFIGameMode.h"
 #include "TerraFrameImpact/PlayerController/TFIPlayerController.h"
 
+ATFIGameState::ATFIGameState()
+{
+	PrimaryActorTick.bCanEverTick = true;
+}
+
 void ATFIGameState::AddTotalElimAmount(int32 AmountToAdd)
 {
 	TotalElimAmount = FMath::Max(TotalElimAmount + AmountToAdd, 0);
