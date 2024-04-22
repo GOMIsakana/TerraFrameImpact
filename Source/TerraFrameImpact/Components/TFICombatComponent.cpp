@@ -380,14 +380,6 @@ void UTFICombatComponent::Fire()
 	StartFireTimer();
 }
 
-void UTFICombatComponent::FireProjectileWeapon()
-{
-	if (HoldingWeapon == nullptr || Character == nullptr) return;
-	HitTarget = HoldingWeapon->bEnableSpread ? HoldingWeapon->TraceEndWithSpread(HitTarget) : HitTarget;
-	if (!Character->HasAuthority()) LocalFire(HitTarget);
-	ServerFire(HitTarget);
-}
-
 void UTFICombatComponent::FireHitScanWeapon()
 {
 	if (HoldingWeapon == nullptr || Character == nullptr) return;
@@ -416,15 +408,24 @@ void UTFICombatComponent::FireShotgunWeapon()
 	ServerShotgunFire(HitTargets);
 }
 
+void UTFICombatComponent::FireProjectileWeapon()
+{
+	if (HoldingWeapon == nullptr || Character == nullptr) return;
+	// 获取射线检测的结果。如果武器启用了子弹扩散, 则根据当前的射线检测结果在一定距离外进行随机扩散计算
+	HitTarget = HoldingWeapon->bEnableSpread ? HoldingWeapon->TraceEndWithSpread(HitTarget) : HitTarget;
+	if (!Character->HasAuthority()) LocalFire(HitTarget);	// 让客户端在本地开火, 保证客户端本地看到正确的美术效果
+	ServerFire(HitTarget);	// 客户端向服务器申请开火
+}
+
 void UTFICombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TargetPos)
 {
-	MulticastFire(TargetPos);
+	MulticastFire(TargetPos);	// 服务器多播给其他客户端开火
 }
 
 void UTFICombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TargetPos)
 {
 	if (Character && Character->IsLocallyControlled() && !Character->HasAuthority()) return;
-	// 这里是为了只让想开枪的玩家，或者服务器上的玩家开枪
+	// 让申请开枪的玩家在其他客户端的复制体开火(服务器玩家在这里进行开火, 申请开火的客户端不会再次开火)
 	LocalFire(TargetPos);
 }
 
@@ -433,6 +434,7 @@ void UTFICombatComponent::LocalFire(const FVector_NetQuantize& TargetPos)
 	if (HoldingWeapon == nullptr) return;
 	if (Character && CharacterState == ECharacterState::ECS_Normal)
 	{
+		// 播放角色和武器的开火动画, 武器根据射线检测结果处理开火逻辑
 		Character->PlayFireMontage(bIsAiming);
 		HoldingWeapon->Fire(TargetPos);
 	}

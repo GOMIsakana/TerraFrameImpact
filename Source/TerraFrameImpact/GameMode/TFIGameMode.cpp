@@ -44,9 +44,25 @@ void ATFIGameMode::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(ATFIGameMode, OnlinePlayersIndex);
 }
 
+void ATFIGameMode::PlayerKnockdown()
+{
+	ATFIGameState* TFIGameState = Cast<ATFIGameState>(GameState);
+	if (TFIGameState)
+	{
+		TFIGameState->AddRespawnTimes(-1);
+	}
+}
+
 void ATFIGameMode::RequestRespawn(ACharacter* ElimmitedCharacter, AController* ElimmedController)
 {
 	ATFIGameState* TFIGameState = Cast<ATFIGameState>(GameState);
+	if (TFIGameState)
+	{
+		if (TFIGameState->GetRemainRespawnTimes() < 0)
+		{
+			return;
+		}
+	}
 	if (ElimmitedCharacter)
 	{
 		ElimmitedCharacter->Reset();
@@ -55,10 +71,6 @@ void ATFIGameMode::RequestRespawn(ACharacter* ElimmitedCharacter, AController* E
 	if (ElimmedController)
 	{
 		RestartPlayerAtTransform(ElimmedController, ElimmitedCharacter->GetActorTransform());
-	}
-	if (TFIGameState)
-	{
-		TFIGameState->AddRespawnTimes(-1);
 	}
 }
 
@@ -149,6 +161,7 @@ void ATFIGameMode::PlayerLeftGame(ATFIPlayerState* LeaveingPlayer)
 
 void ATFIGameMode::EndGame()
 {
+	if (bGameFinished) return;
 	GetWorld()->GetTimerManager().SetTimer(
 		EndGameTimer,
 		this,

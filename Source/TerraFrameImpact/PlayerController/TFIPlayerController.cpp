@@ -131,12 +131,14 @@ void ATFIPlayerController::SetHUDCarriedAmmo(int32 Ammo)
 void ATFIPlayerController::SetHUDHealth(float CurHealth, float MaxHealth)
 {
 	TFICharacterHUD = TFICharacterHUD == nullptr ? Cast<ATFICharacterHUD>(GetHUD()) : TFICharacterHUD;
+	// 检查HUD是否已启用, 并且生命值的ProgressBar和TextBlock组件有效
 	bool bHUDValid = TFICharacterHUD &&
 		TFICharacterHUD->CharacterOverlay &&
 		TFICharacterHUD->CharacterOverlay->HealthBar &&
 		TFICharacterHUD->CharacterOverlay->HealthText;
 	if (bHUDValid)
 	{
+		// 设置生命值的ProgressBar组件的进度和TextBlock组件所显示的值
 		TFICharacterHUD->CharacterOverlay->HealthBar->SetPercent(CurHealth / MaxHealth);
 		FString HealthText = FString::Printf(TEXT("%.0f"), CurHealth);
 		TFICharacterHUD->CharacterOverlay->HealthText->SetText(FText::FromString(HealthText));

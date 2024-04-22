@@ -22,6 +22,7 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void PlayerKnockdown();
 	virtual void RequestRespawn(ACharacter* ElimmitedCharacter, AController* ElimmedController);
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void Logout(AController* Exiting) override;
@@ -51,6 +52,8 @@ protected:
 	float EndCountdown = 5.f;
 	FTimerHandle EndGameTimer;
 	void OnEndGameTimerFinish();
+
+	bool bGameFinished = false;
 
 public:
 	FORCEINLINE void AddToOnlinePlayers(ATFIPlayerController* NewPlayer) { OnlinePlayers.Add(NewPlayer); OnlinePlayersName.Add(NewPlayer->GetPlayerState<ATFIPlayerState>()->GetPlayerName()); }

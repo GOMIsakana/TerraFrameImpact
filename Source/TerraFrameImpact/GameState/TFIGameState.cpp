@@ -57,7 +57,17 @@ void ATFIGameState::AddEnemyAmount(int32 AmountToAdd)
 
 void ATFIGameState::AddRespawnTimes(int32 AmountToAdd)
 {
-	RemainRespawnTimes = FMath::Max(RemainRespawnTimes + AmountToAdd, 0);
+	RemainRespawnTimes += AmountToAdd;
+	// 次数小于0的时候说明是在复活次数=0的时候请求减少的，所以负了就是直接判输
+	if (RemainRespawnTimes < 0)
+	{
+		ATFIGameMode* TFIGameMode = Cast<ATFIGameMode>(GetWorld()->GetAuthGameMode());
+		if (TFIGameMode)
+		{
+			TFIGameMode->EndGame();
+		}
+		return;
+	}
 
 	ATFIPlayerController* PlayerController = Cast<ATFIPlayerController>(GetWorld()->GetFirstPlayerController());
 	if (PlayerController != nullptr)

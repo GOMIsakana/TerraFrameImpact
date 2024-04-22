@@ -35,13 +35,13 @@ private:
 	float ExecuteAIDelay = .5f;
 
 	UPROPERTY(EditAnywhere, Category = "AI行为参数")
-	float WanderRange = 5000.f;
+	float WanderRange = 500.f;
 
 	UPROPERTY(EditAnywhere, Category = "AI行为参数")
-	float AttackDistance = 1000.f;
+	float AttackDistance = 2000.f;
 
 	UPROPERTY(EditAnywhere, Category = "AI行为参数")
-	float DashDistance = 5000.f;
+	float DashDistance = 2000.f;
 
 	TArray<AActor*> PlayerCharacterArray;
 	FVector CurrentTargetLocation;
@@ -56,5 +56,6 @@ public:
 	FORCEINLINE ATFICharacter* GetCurrentTarget() const { return CurrentTarget; }
 	FORCEINLINE bool IsBehaviorTreeExecuting() const { return bBehaviorTreeExecuting; }
 	FVector GetTargetHeadLocation();
+	bool bCurrentTargetValid();
 
 };

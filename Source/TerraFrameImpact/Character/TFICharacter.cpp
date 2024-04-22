@@ -26,6 +26,7 @@
 ATFICharacter::ATFICharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	bReplicates = true;
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("摄像机弹簧臂"));
 	CameraBoom->SetupAttachment(GetMesh());
@@ -71,6 +72,8 @@ void ATFICharacter::BeginPlay()
 	{
 		OnTakeAnyDamage.AddDynamic(this, &ATFICharacter::ReceiveDamage);
 	}
+	UpdateHUDHealth();
+	UpdateHUDShield(); 
 }
 
 void ATFICharacter::Tick(float DeltaTime)
@@ -79,23 +82,18 @@ void ATFICharacter::Tick(float DeltaTime)
 
 	AimOffset(DeltaTime);
 
-	if (bCanRecoveryShield)
+	if (HasAuthority())
 	{
 		RecoveryShield();
 	}
-	UpdateHUDHealth();
-	UpdateHUDShield(); 
+	// UpdateHUDHealth();
+	// UpdateHUDShield(); 
 	UpdateMinimapTranslation();
 
 	if (!GetCharacterMovement()->IsFalling() && CombatComponent)
 	{
 		CombatComponent->ResetBulletJumpLimit();
 	}
-	/*
-	FVector Velocity = GetVelocity();
-	Velocity.Z = 0.f;
-	UE_LOG(LogTemp, Warning, TEXT("Walk Speed = %.3f"), Velocity.Size());
-	*/
 }
 
 void ATFICharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -201,8 +199,9 @@ void ATFICharacter::OnShieldRecoveryTimerComplete()
 
 void ATFICharacter::RecoveryShield()
 {
-	if (bDying || bElimmed) return;
+	if (bDying || bElimmed || !bCanRecoveryShield || Shield >= MaxShield) return;
 	Shield = FMath::Clamp(Shield + ShieldRecoveryAmountPerTick, 0, MaxShield);
+	UpdateHUDShield();
 }
 
 void ATFICharacter::OnRep_Health(float LastHealth)
@@ -805,6 +804,13 @@ void ATFICharacter::KnockDown()
 	SetHealthBarDisplay(false);
 	bDying = true;
 	MulticastKnockDown();
+
+	TFIGameMode = TFIGameMode == nullptr ? GetWorld()->GetAuthGameMode<ATFIGameMode>() : TFIGameMode;
+	TFIPlayerController = TFIPlayerController == nullptr ? Cast<ATFIPlayerController>(Controller) : TFIPlayerController;
+	if (TFIGameMode != nullptr && TFIPlayerController != nullptr)
+	{
+		TFIGameMode->PlayerKnockdown();
+	}
 }
 
 void ATFICharacter::MulticastKnockDown_Implementation()

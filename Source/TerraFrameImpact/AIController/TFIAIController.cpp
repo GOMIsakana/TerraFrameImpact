@@ -52,7 +52,6 @@ void ATFIAIController::ExecuteAI()
 		GetBlackboardComponent()->SetValueAsVector(TEXT("LastTargetLocation"), LastTargetLocation);
 		GetBlackboardComponent()->ClearValue(TEXT("TargetPlayer"));
 		CurrentTarget = nullptr;
-		// MoveToLocation(TargetLocation, 50.f);
 	}
 
 	FVector SelfLocation = Character->GetActorLocation();
@@ -69,15 +68,22 @@ void ATFIAIController::ExecuteAI()
 		GetBlackboardComponent()->ClearValue(TEXT("LastTargetLocation"));
 	}
 
+	// 获取所有玩家
 	UGameplayStatics::GetAllActorsOfClass(this, ATFICharacter::StaticClass(), PlayerCharacterArray);
-	if (CurrentTarget == nullptr || CurrentTarget->IsDying() || CurrentTarget->IsElimmed())
+	// 当前锁定的目标为空，或当前锁定的目标处于倒地或者被歼灭的状态
+	if (!bCurrentTargetValid())
 	{
+		CurrentTarget = nullptr;
+		GetBlackboardComponent()->ClearValue(TEXT("TargetPlayer"));
+
+		// 遍历可直视看到的玩家, 将它们添加到目标列表中
 		TArray<ATFICharacter*> CanSeePlayers;
 		for (AActor* Player : PlayerCharacterArray)
 		{
 			ATFICharacter* PlayerCharacter = Cast<ATFICharacter>(Player);
 			if (PlayerCharacter->IsPlayerControlled())
 			{
+				// 当前锁定的目标可用, 且不处于倒地或被歼灭状态
 				bool bCanSeeThisPlayer = LineOfSightTo(PlayerCharacter) && !PlayerCharacter->IsDying() && !PlayerCharacter->IsElimmed();
 				if (bCanSeeThisPlayer)
 				{
@@ -86,28 +92,26 @@ void ATFIAIController::ExecuteAI()
 			}
 		}
 
+		// 如果筛选到了可用的玩家, 选择随机的玩家作为目标
 		if (CanSeePlayers.Num() > 0)
 		{
 			int32 RandomNum = FMath::RandRange(0, CanSeePlayers.Num() - 1);
 			CurrentTarget = CanSeePlayers[RandomNum];
+			// 将选定的玩家更新到黑板(BlackBroad)组件中
 			GetBlackboardComponent()->SetValueAsObject(TEXT("TargetPlayer"), CurrentTarget);
 		}
 	}
 
 	FVector CurrentLocation = Character->GetActorLocation();
-	if (CurrentTarget != nullptr)
+	if (bCurrentTargetValid())
 	{
-		// SetFocus(CurrentTarget);
-		// MoveToActor(CurrentTarget);
 		CurrentTargetLocation = CurrentTarget->GetActorLocation();
 	}
 	else
 	{
-		// ClearFocus(EAIFocusPriority::Gameplay);
 		FVector RandomVector = UKismetMathLibrary::RandomUnitVector();
 		RandomVector.Z = 0.f;
 		CurrentTargetLocation = CurrentLocation + RandomVector * WanderRange;
-		// MoveToLocation(TargetLocation, 50.f);
 	}
 
 	GetBlackboardComponent()->SetValueAsVector(TEXT("TargetLocation"), CurrentTargetLocation);
@@ -144,21 +148,25 @@ void ATFIAIController::StopExecuteAI()
 
 void ATFIAIController::Destroyed()
 {
-	Super::Destroyed();
-
-
 	StopExecuteAI();
-	GetBlackboardComponent()->ClearValue(TEXT("TargetPlayer"));
+	Super::Destroyed();
 }
 
 FVector ATFIAIController::GetTargetHeadLocation()
 {
-	if (CurrentTarget == nullptr || CurrentTarget->GetMesh() == nullptr) return FVector();
-	const USkeletalMeshSocket* HeadSocket = CurrentTarget->GetMesh()->GetSocketByName("HeadSocket");
 	FVector HeadLocation = FVector();
-	if (HeadSocket != nullptr)
+	if (bCurrentTargetValid() && CurrentTarget->GetMesh() != nullptr)
 	{
-		HeadLocation = HeadSocket->GetSocketLocation(CurrentTarget->GetMesh());
+		const USkeletalMeshSocket* HeadSocket = CurrentTarget->GetMesh()->GetSocketByName("HeadSocket");
+		if (HeadSocket != nullptr)
+		{
+			HeadLocation = HeadSocket->GetSocketLocation(CurrentTarget->GetMesh());
+		}
 	}
 	return HeadLocation;
+}
+
+bool ATFIAIController::bCurrentTargetValid()
+{
+	return CurrentTarget != nullptr && !CurrentTarget->IsDying() && !CurrentTarget->IsElimmed();
 }

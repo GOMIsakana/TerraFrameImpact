@@ -3,41 +3,24 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
+#include "ActorSpawn.h"
 #include "TerraFrameImpact/Character/TFIAICharacter.h"
 #include "EnemySpawn.generated.h"
 
 UCLASS()
-class TERRAFRAMEIMPACT_API AEnemySpawn : public AActor
+class TERRAFRAMEIMPACT_API AEnemySpawn : public AActorSpawn
 {
 	GENERATED_BODY()
 	
 public:	
-	// Sets default values for this actor's properties
 	AEnemySpawn();
 
-	void StartSpawnTimer();
-	void StartSpawn();
-	void StopSpawn();
-
 protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
 
-	virtual void OnSpawnTimerFinished();
+	virtual void OnSpawnTimerFinished() override;
 
 private:
 	FTimerHandle SpawnTimer;
-	UPROPERTY(EditAnywhere, Category = "敌人生成")
-	float SpawnDelay = 5.f;
-	UPROPERTY(EditAnywhere, Category = "敌人生成")
-	bool bSpawnAtFirstTick;
-	UPROPERTY(EditAnywhere, Category = "敌人生成")
-	int32 SpawnAmountOneTime = 1;
-	UPROPERTY(EditAnywhere, Category = "敌人生成")
-	int32 TotalSpawnTimes = -1;
-	UPROPERTY(EditAnywhere, Category = "敌人生成")
-	TSubclassOf<ATFIAICharacter> EnemyClass;
 
 public:	
 	// Called every frame

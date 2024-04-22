@@ -14,45 +14,10 @@ AEnemySpawn::AEnemySpawn()
 
 }
 
-void AEnemySpawn::StartSpawnTimer()
-{
-	if (!HasAuthority()) return;
-	GetWorld()->GetTimerManager().SetTimer(
-		SpawnTimer,
-		this,
-		&AEnemySpawn::OnSpawnTimerFinished,
-		SpawnDelay,
-		true,
-		SpawnDelay
-	);
-}
-
-void AEnemySpawn::StartSpawn()
-{
-	if (bSpawnAtFirstTick)
-	{
-		OnSpawnTimerFinished();
-	}
-	StartSpawnTimer();
-}
-
-void AEnemySpawn::StopSpawn()
-{
-	GetWorld()->GetTimerManager().ClearTimer(SpawnTimer);
-}
-
-// Called when the game starts or when spawned
-void AEnemySpawn::BeginPlay()
-{
-	Super::BeginPlay();
-	
-	StartSpawn();
-}
-
 void AEnemySpawn::OnSpawnTimerFinished()
 {
 	ATFIGameMode* GameMode = GetWorld()->GetAuthGameMode<ATFIGameMode>();
-	if (EnemyClass == nullptr || GameMode == nullptr || !HasAuthority()) return;
+	if (ActorClass == nullptr || GameMode == nullptr || !HasAuthority()) return;
 	ATFIGameState* GameState = GameMode->GetGameState<ATFIGameState>();
 	if (GameState == nullptr) return;
 
@@ -61,7 +26,7 @@ void AEnemySpawn::OnSpawnTimerFinished()
 	const FTransform SpawnTransform = GetActorTransform();
 	for (int i = 0; i < SpawnAmountOneTime && GameState->GetEnemyAmount() < GameState->GetEnemyLimit(); i++)
 	{
-		ATFIAICharacter* Enemy = GetWorld()->SpawnActor<ATFIAICharacter>(EnemyClass, SpawnTransform, SpawnParmeters);
+		ATFIAICharacter* Enemy = GetWorld()->SpawnActor<ATFIAICharacter>(ActorClass, SpawnTransform, SpawnParmeters);
 		if (Enemy != nullptr)
 		{
 			Enemy->SpawnDefaultController();
